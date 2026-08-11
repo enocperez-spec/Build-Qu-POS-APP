@@ -158,6 +158,14 @@ const FEATURE_RELEASES = [
         type: "Improvement",
         status: "Released",
     },
+    {
+        version: "v002.09",
+        releasedAt: "2026-08-11 17:36:33 -04:00",
+        title: "QU Admin Login Automation Fix",
+        description: "Improved the GitHub Actions QU Admin login flow to wait for the login form, fill visible username and password fields, and confirm login before searching for the Actions button.",
+        type: "Bug Fix",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
@@ -774,7 +782,7 @@ function renderReleaseNotes(returnPage = state.currentPage || "dashboard") {
             </div>
             <button class="btn back-btn" id="backToApplicationBtn" type="button">Back to Application</button>
             <div class="release-rules">
-                Version sequence: v001.01 through v001.09, then v002.00, followed by v002.01, v002.02, v002.03, v002.04, v002.05, v002.06, v002.07, v002.08, and so on.
+                Version sequence: v001.01 through v001.09, then v002.00, followed by v002.01, v002.02, v002.03, v002.04, v002.05, v002.06, v002.07, v002.08, v002.09, and so on.
             </div>
             <div class="release-list">
                 ${FEATURE_RELEASES.slice().reverse().map(release => `
