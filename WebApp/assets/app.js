@@ -223,6 +223,14 @@ const FEATURE_RELEASES = [
         type: "Feature",
         status: "Released",
     },
+    {
+        version: "v003.07",
+        releasedAt: "2026-08-11 18:55:00 -04:00",
+        title: "Production Asset Cache Busting",
+        description: "Added automatic cache-busting query strings to CSS and JavaScript assets so browsers load newly deployed dashboard and Settings updates immediately.",
+        type: "Bug Fix",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
@@ -858,7 +866,7 @@ function renderReleaseNotes(returnPage = state.currentPage || "dashboard") {
             </div>
             <button class="btn back-btn" id="backToApplicationBtn" type="button">Back to Application</button>
             <div class="release-rules">
-                Version sequence: v001.01 through v001.09, then v002.00 through v002.09, then v003.00, v003.01, v003.02, v003.03, v003.04, v003.05, v003.06, and so on.
+                Version sequence: v001.01 through v001.09, then v002.00 through v002.09, then v003.00, v003.01, v003.02, v003.03, v003.04, v003.05, v003.06, v003.07, and so on.
             </div>
             <div class="release-list">
                 ${FEATURE_RELEASES.slice().reverse().map(release => `
