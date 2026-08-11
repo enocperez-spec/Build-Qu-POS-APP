@@ -272,6 +272,14 @@ const FEATURE_RELEASES = [
         type: "Improvement",
         status: "Released",
     },
+    {
+        version: "v004.03",
+        releasedAt: "2026-08-11 20:55:00 -04:00",
+        title: "Cleaner Dashboard Trend Wording",
+        description: "Improved the stable usage and out-of-date stores trend labels so unchanged, improved, and increased states read more clearly on the dashboard cards.",
+        type: "Improvement",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
@@ -955,7 +963,7 @@ function renderReleaseNotes(returnPage = state.currentPage || "dashboard") {
             </div>
             <button class="btn back-btn" id="backToApplicationBtn" type="button">Back to Application</button>
             <div class="release-rules">
-                Version sequence: v001.01 through v001.09, then v002.00 through v002.09, then v003.00 through v003.09, then v004.00, v004.01, v004.02, and so on.
+                Version sequence: v001.01 through v001.09, then v002.00 through v002.09, then v003.00 through v003.09, then v004.00, v004.01, v004.02, v004.03, and so on.
             </div>
             <div class="release-list">
                 ${FEATURE_RELEASES.slice().reverse().map(release => `
@@ -1482,17 +1490,17 @@ function metricCard(label, value, meta, type, trend = "", shortcut = "") {
 function outOfDateTrend(trend) {
     if (!trend || trend.previous === undefined || trend.previous === null) return "";
     const delta = Number(trend.delta || 0);
-    if (delta < 0) return trendChip("good", `${Math.abs(delta)} down from ${trend.previous}`);
-    if (delta > 0) return trendChip("bad", `${delta} up from ${trend.previous}`);
-    return trendChip("flat", `No change from ${trend.previous}`);
+    if (delta < 0) return trendChip("good", `${Math.abs(delta)} fewer stores than last upload`);
+    if (delta > 0) return trendChip("bad", `${delta} more stores than last upload`);
+    return trendChip("flat", `Holding steady at ${trend.current} stores`);
 }
 
 function stableUsageTrend(trend) {
     if (!trend || trend.deltaPercent === undefined || trend.deltaPercent === null) return "";
     const delta = Number(trend.deltaPercent || 0);
-    if (delta > 0) return trendChip("good", `+${delta.toFixed(1)}% stable usage`);
-    if (delta < 0) return trendChip("bad", `${delta.toFixed(1)}% stable usage`);
-    return trendChip("flat", "Stable usage unchanged");
+    if (delta > 0) return trendChip("good", `Stable usage up ${delta.toFixed(1)} pts`);
+    if (delta < 0) return trendChip("bad", `Stable usage down ${Math.abs(delta).toFixed(1)} pts`);
+    return trendChip("flat", "Stable usage holding steady");
 }
 
 function trendChip(status, label) {
