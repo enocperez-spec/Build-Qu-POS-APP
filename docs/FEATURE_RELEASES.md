@@ -1,9 +1,9 @@
 # Release Notes
 
-Current application version: `v003.04`
+Current application version: `v003.05`
 
 Version sequence: `v001.01` through `v001.09`, then `v002.00`, followed by
-`v002.00` through `v002.09`, then `v003.00`, `v003.01`, `v003.02`, `v003.03`, `v003.04`, and so on.
+`v002.00` through `v002.09`, then `v003.00`, `v003.01`, `v003.02`, `v003.03`, `v003.04`, `v003.05`, and so on.
 
 Going forward, every approved and completed feature, improvement, bug fix, or
 security change should add a new entry here and update the current application
@@ -13,6 +13,7 @@ Newest releases are listed first.
 
 | Version | Release Date And Time | Type | Title | Description | Status |
 | --- | --- | --- | --- | --- | --- |
+| v003.05 | 2026-08-11 18:12:48 -04:00 | Improvement | Modern Logout Button Styling | Updated the Log Out button with a brighter red pill style, stronger contrast, subtle glow, and modern hover interaction. | Released |
 | v003.04 | 2026-08-11 18:11:39 -04:00 | Improvement | Footer-Only Release Notes Access | Removed Release Notes from the left navigation while keeping release notes available through the clickable footer version. | Released |
 | v003.03 | 2026-08-11 18:10:09 -04:00 | Security | Admin-Only Users Navigation | Reinforced Users page access so only Admin users can see or open user management, while Tech and Read-Only roles are redirected away. | Released |
 | v003.02 | 2026-08-11 18:06:43 -04:00 | Improvement | Upload Page Report Cleanup | Removed the dashboard/report view from the Upload CSV page so the section only shows upload controls and CSV Upload History. | Released |
