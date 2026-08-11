@@ -28,7 +28,7 @@ historical comparisons.
 
 ## Release Notes
 
-The current application version is `v002.07`.
+The current application version is `v002.08`.
 
 Release history is tracked in [docs/FEATURE_RELEASES.md](docs/FEATURE_RELEASES.md).
 Every completed request receives the next version number and remains available
@@ -71,6 +71,9 @@ Required GitHub repository secrets:
 - `QU_APP_IMPORT_TOKEN`
 
 The workflow can also be run manually from GitHub Actions with `workflow_dispatch`.
+
+If the QU Admin export fails, the workflow uploads a `qu-admin-export-diagnostics`
+artifact with a screenshot, page HTML, and error summary for troubleshooting.
 
 ## Validation
 

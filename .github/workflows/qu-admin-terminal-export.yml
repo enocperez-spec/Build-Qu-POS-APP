@@ -39,3 +39,13 @@ jobs:
           QU_ADMIN_PASS: ${{ secrets.QU_ADMIN_PASS }}
           QU_APP_IMPORT_URL: https://quposapp.qupostech.com/api/cloud-import.php
           QU_APP_IMPORT_TOKEN: ${{ secrets.QU_APP_IMPORT_TOKEN }}
+          QU_EXPORT_ARTIFACT_DIR: artifacts
+
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qu-admin-export-diagnostics
+          path: AppData/CloudAutomation/artifacts/
+          if-no-files-found: ignore
+          retention-days: 7

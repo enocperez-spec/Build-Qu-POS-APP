@@ -11,11 +11,35 @@ const settings = {
   importToken: process.env.QU_APP_IMPORT_TOKEN,
   headless: String(process.env.QU_EXPORT_HEADLESS ?? 'true').toLowerCase() !== 'false',
   timeoutMs: Number(process.env.QU_EXPORT_TIMEOUT_MS || 90000),
+  artifactDir: process.env.QU_EXPORT_ARTIFACT_DIR || path.resolve('artifacts'),
 };
 
 function required(value, name) {
   if (!value) throw new Error(`Missing required secret or setting: ${name}`);
   return value;
+}
+
+function safeStamp() {
+  return new Date().toISOString().replace(/[:.]/g, '-');
+}
+
+async function saveDiagnostics(page, label, error) {
+  await fs.mkdir(settings.artifactDir, { recursive: true });
+  const stamp = safeStamp();
+  const baseName = `${stamp}-${label}`;
+  const screenshotPath = path.join(settings.artifactDir, `${baseName}.png`);
+  const htmlPath = path.join(settings.artifactDir, `${baseName}.html`);
+  const summaryPath = path.join(settings.artifactDir, `${baseName}.txt`);
+
+  await page.screenshot({ path: screenshotPath, fullPage: true }).catch(() => {});
+  const html = await page.content().catch(reason => `Unable to capture HTML: ${reason?.message || reason}`);
+  await fs.writeFile(htmlPath, html, 'utf8');
+  await fs.writeFile(summaryPath, [
+    `URL: ${page.url()}`,
+    `Title: ${await page.title().catch(() => '')}`,
+    `Error: ${error?.stack || error?.message || error}`,
+  ].join('\n'), 'utf8');
+  console.log(`Diagnostics saved to ${settings.artifactDir}`);
 }
 
 async function clickFirst(page, choices) {
@@ -97,6 +121,9 @@ async function exportTerminals() {
     await download.saveAs(filePath);
     console.log(`Export saved: ${filePath}`);
     return filePath;
+  } catch (error) {
+    await saveDiagnostics(page, 'export-failure', error);
+    throw error;
   } finally {
     await context.close();
     await browser.close();
