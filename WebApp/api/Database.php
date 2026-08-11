@@ -951,6 +951,62 @@ final class Database
         return $items[0] ?? null;
     }
 
+    public static function dashboardHealth(PDO $pdo): array
+    {
+        self::initialize($pdo);
+        $latestTerminalUpload = self::latestCsvUploads($pdo, 1)[0] ?? null;
+        $latestStoreImport = self::latestStoreImport($pdo);
+        $schedules = self::listApiSchedules($pdo);
+        $jobs = [];
+        foreach ($schedules as $schedule) {
+            $key = $schedule['jobKey'];
+            if (!isset($jobs[$key])) {
+                $jobs[$key] = [
+                    'jobKey' => $key,
+                    'jobName' => $schedule['jobName'],
+                    'scheduledTimes' => [],
+                    'timezone' => $schedule['timezone'],
+                    'lastRunAt' => $schedule['lastRunAt'],
+                    'nextRunAt' => $schedule['nextRunAt'],
+                    'status' => $schedule['lastStatus'],
+                ];
+            }
+            $jobs[$key]['scheduledTimes'][] = $schedule['displayTime'];
+            if (!$jobs[$key]['lastRunAt'] && $schedule['lastRunAt']) {
+                $jobs[$key]['lastRunAt'] = $schedule['lastRunAt'];
+            }
+            if (!$jobs[$key]['nextRunAt'] || strtotime((string)$schedule['nextRunAt']) < strtotime((string)$jobs[$key]['nextRunAt'])) {
+                $jobs[$key]['nextRunAt'] = $schedule['nextRunAt'];
+            }
+        }
+
+        return [
+            'latestTerminalUpload' => $latestTerminalUpload,
+            'latestStoreImport' => $latestStoreImport,
+            'apiJobs' => array_values($jobs),
+        ];
+    }
+
+    private static function latestStoreImport(PDO $pdo): ?array
+    {
+        $statement = $pdo->query(
+            "SELECT id, original_filename, row_count, uploaded_at
+             FROM store_imports
+             ORDER BY uploaded_at DESC, id DESC
+             LIMIT 1"
+        );
+        $row = $statement->fetch();
+        if (!$row) {
+            return null;
+        }
+        return [
+            'id' => (int)$row['id'],
+            'filename' => $row['original_filename'],
+            'rowCount' => (int)$row['row_count'],
+            'uploadedAt' => date('c', strtotime($row['uploaded_at'])),
+        ];
+    }
+
     private static function field(array $row, string $name): ?string
     {
         if (!array_key_exists($name, $row)) {

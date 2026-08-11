@@ -8,6 +8,7 @@ const state = {
     reports: [],
     uploads: [],
     selectedUploadId: "",
+    dashboardHealth: null,
     activeTab: "current",
     settingsTab: "users",
     currentPage: "dashboard",
@@ -239,6 +240,14 @@ const FEATURE_RELEASES = [
         type: "Feature",
         status: "Released",
     },
+    {
+        version: "v003.09",
+        releasedAt: "2026-08-11 19:35:00 -04:00",
+        title: "Dashboard Data Health Summary",
+        description: "Added dashboard health cards for latest terminal sync, latest store sync, store data volume, and QU EI automation status so users can quickly confirm data freshness.",
+        type: "Improvement",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
@@ -396,7 +405,7 @@ function renderHome() {
     state.currentPage = "dashboard";
     state.report = null;
     state.selectedUploadId = "";
-    app.innerHTML = shell(header() + dashboardUploadSelector() + `<div id="reportMount">${latestReportLoading()}</div>`, "dashboard");
+    app.innerHTML = shell(header() + dashboardUploadSelector() + `<div id="dashboardHealthMount"></div><div id="reportMount">${latestReportLoading()}</div>`, "dashboard");
     bindShell();
     bindDashboardUploadSelector();
     if (state.report) bindReport();
@@ -418,6 +427,37 @@ function dashboardUploadSelector() {
                 <button class="btn" id="loadUploadReportBtn" type="button">Load Upload</button>
             </div>
         </section>`;
+}
+
+function dashboardHealthPanel(health) {
+    if (!health) return "";
+    const terminal = health.latestTerminalUpload;
+    const store = health.latestStoreImport;
+    const jobs = health.apiJobs || [];
+    const terminalJob = jobs.find(job => job.jobKey === "qu_ei_terminals_csv");
+    const storeJob = jobs.find(job => job.jobKey === "qu_ei_stores_csv");
+    return `
+        <section class="dashboard-health">
+            ${healthCard("Latest Terminal Sync", terminal ? dateTimeLabel(terminal.uploadedAt) : "Not synced", terminal ? `${terminal.rowCount} rows from ${terminal.filename}` : "Upload or run the terminal job", "sync")}
+            ${healthCard("Latest Store Sync", store ? dateTimeLabel(store.uploadedAt) : "Not synced", store ? `${store.rowCount} stores from ${store.filename}` : "Run Store Information export", "store")}
+            ${healthCard("Terminal Job", terminalJob?.status || "Not Run Yet", terminalJob ? `Next ${dateTimeLabel(terminalJob.nextRunAt)} • ${terminalJob.scheduledTimes.join(", ")}` : "No schedule found", "automation")}
+            ${healthCard("Store Job", storeJob?.status || "Not Run Yet", storeJob ? `Next ${dateTimeLabel(storeJob.nextRunAt)} • ${storeJob.scheduledTimes.join(", ")}` : "No schedule found", "automation")}
+        </section>`;
+}
+
+function healthCard(label, value, meta, type) {
+    return `
+        <article class="health-card health-${escapeHtml(type)}">
+            <span class="health-label">${escapeHtml(label)}</span>
+            <strong>${escapeHtml(value)}</strong>
+            <span class="health-meta">${escapeHtml(meta || "")}</span>
+        </article>`;
+}
+
+function dateTimeLabel(value) {
+    if (!value) return "Not scheduled";
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString();
 }
 
 function bindDashboardUploadSelector() {
@@ -727,12 +767,16 @@ async function loadLatestReport() {
         const payload = await response.json();
         if (!payload.ok) throw new Error(payload.error || "Could not load latest report.");
         if (!payload.report) {
+            state.dashboardHealth = payload.health || null;
+            document.getElementById("dashboardHealthMount").innerHTML = dashboardHealthPanel(state.dashboardHealth);
             mount.innerHTML = `<section class="empty" style="margin-top:18px;">No generated reports yet. Tech or Admin users can upload a CSV from the Upload CSV page.</section>`;
             return;
         }
         state.report = payload.report;
+        state.dashboardHealth = payload.health || null;
         state.htmlUrl = payload.metadata?.url || null;
         refreshHeaderLastUpdated();
+        document.getElementById("dashboardHealthMount").innerHTML = dashboardHealthPanel(state.dashboardHealth);
         mount.innerHTML = reportView(state.report);
         bindReport();
     } catch (error) {

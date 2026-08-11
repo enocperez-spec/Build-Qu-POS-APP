@@ -16,7 +16,7 @@ try {
         if ($pdo) {
             $latest = Database::latestReport($pdo);
             $report = $latest ? ReportService::reportFromFileUrl(dirname(__DIR__), (string)$latest['jsonUrl']) : null;
-            echo json_encode(['ok' => true, 'report' => $report, 'metadata' => $latest]);
+            echo json_encode(['ok' => true, 'report' => $report, 'metadata' => $latest, 'health' => Database::dashboardHealth($pdo)]);
             exit;
         }
         $reports = ReportService::listReports(dirname(__DIR__));

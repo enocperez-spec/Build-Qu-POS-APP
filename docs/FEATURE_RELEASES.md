@@ -1,9 +1,9 @@
 # Release Notes
 
-Current application version: `v003.08`
+Current application version: `v003.09`
 
 Version sequence: `v001.01` through `v001.09`, then `v002.00`, followed by
-`v002.00` through `v002.09`, then `v003.00`, `v003.01`, `v003.02`, `v003.03`, `v003.04`, `v003.05`, `v003.06`, `v003.07`, `v003.08`, and so on.
+`v002.00` through `v002.09`, then `v003.00`, `v003.01`, `v003.02`, `v003.03`, `v003.04`, `v003.05`, `v003.06`, `v003.07`, `v003.08`, `v003.09`, and so on.
 
 Going forward, every approved and completed feature, improvement, bug fix, or
 security change should add a new entry here and update the current application
@@ -13,6 +13,7 @@ Newest releases are listed first.
 
 | Version | Release Date And Time | Type | Title | Description | Status |
 | --- | --- | --- | --- | --- | --- |
+| v003.09 | 2026-08-11 19:35:00 -04:00 | Improvement | Dashboard Data Health Summary | Added dashboard health cards for latest terminal sync, latest store sync, store data volume, and QU EI automation status so users can quickly confirm data freshness. | Released |
 | v003.08 | 2026-08-11 19:15:00 -04:00 | Feature | QU EI Store Data Synchronization | Added SQL storage, API logging, schedule entries, and cloud automation support for exporting Store Information from QU EI and importing the latest store data. | Released |
 | v003.07 | 2026-08-11 18:55:00 -04:00 | Bug Fix | Production Asset Cache Busting | Added automatic cache-busting query strings to CSS and JavaScript assets so browsers load newly deployed dashboard and Settings updates immediately. | Released |
 | v003.06 | 2026-08-11 18:38:00 -04:00 | Feature | Admin Settings And Role-Based Navigation Management | Added an Admin-only Settings section containing Users, User Roles, API Logs, and API Call Times. Added editable role permissions, QU EI schedule management, and automatic permission registration for navigation sections. | Released |

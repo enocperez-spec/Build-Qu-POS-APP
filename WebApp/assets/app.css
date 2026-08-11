@@ -394,6 +394,54 @@ h2 {
     margin-top: 0;
 }
 
+.dashboard-health {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 14px;
+    margin: 0 0 18px;
+}
+
+.health-card {
+    border: 1px solid rgba(35, 199, 255, .24);
+    border-radius: 16px;
+    padding: 16px;
+    background:
+        linear-gradient(135deg, rgba(35, 199, 255, .08), transparent 44%),
+        rgba(16, 29, 50, .82);
+    min-height: 116px;
+}
+
+.health-label,
+.health-meta {
+    display: block;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.health-label {
+    color: #8fdcff;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+}
+
+.health-card strong {
+    display: block;
+    font-size: clamp(18px, 1.6vw, 24px);
+    line-height: 1.1;
+    margin: 10px 0 8px;
+    overflow-wrap: anywhere;
+}
+
+.health-sync strong,
+.health-automation strong {
+    color: var(--cyan);
+}
+
+.health-store strong {
+    color: var(--green);
+}
+
 .selector-actions {
     display: grid;
     grid-template-columns: 1fr auto;

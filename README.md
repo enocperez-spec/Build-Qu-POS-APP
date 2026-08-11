@@ -29,10 +29,12 @@ historical comparisons.
   Admin and importing the CSV into the web app.
 - Includes QU EI Store Information synchronization with SQL storage for the
   latest exported store data.
+- Shows dashboard data-health cards for latest terminal sync, latest store sync,
+  and QU EI automation status.
 
 ## Release Notes
 
-The current application version is `v003.08`.
+The current application version is `v003.09`.
 
 Release history is tracked in [docs/FEATURE_RELEASES.md](docs/FEATURE_RELEASES.md).
 Every completed request receives the next version number and remains available
