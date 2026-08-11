@@ -1,1 +1,63 @@
-# Build-Qu-POS-APP
+# QU POS Application Version Tools
+
+QU POS Application Version Tools is a web dashboard for tracking QU POS, Kiosk,
+QuBox, and other terminal application versions across stores. It turns uploaded
+terminal CSV exports into searchable reports, dashboard metrics, alerts, and
+historical comparisons.
+
+![Dashboard screenshot](docs/images/dashboard.png)
+
+## What The App Does
+
+- Uploads QU terminal CSV exports and stores each upload as historical data.
+- Automatically treats the newest upload as the current dataset and the previous
+  upload as the comparison dataset.
+- Generates a dashboard showing POS app terminals, current stable version,
+  out-of-date stores, Kiosk versions, QuBox versions, and other detected
+  versions.
+- Provides searchable report tabs for current versions, store version reports,
+  alerts, and comparisons.
+- Identifies mixed-version stores, stale terminals, stores behind the stable
+  version, and version drift.
+- Supports store drill-down views with terminal details, versions, terminal
+  type, and last-seen data.
+- Includes user login, two-factor authentication, and role-based access for
+  admin, tech, and read-only users.
+- Includes optional cloud automation templates for exporting terminals from QU
+  Admin and importing the CSV into the web app.
+
+## Roles
+
+- Admin users can upload CSV files, manage users, assign roles, deactivate users,
+  delete users, and delete historical upload records.
+- Tech users can upload CSV files and generate reports, but cannot delete
+  historical records or manage users.
+- Read-only users can view dashboards and reports without changing data.
+
+## Project Layout
+
+- `WebApp/` contains the PHP, HTML, CSS, and JavaScript web application.
+- `WebApp/api/` contains authentication, upload, report, user, and database APIs.
+- `AppData/CloudAutomation/` contains the optional GitHub Actions and Playwright
+  automation template.
+- `AppData/Qu_App.ps1` and `AppData/Qu_App_UI.ps1` contain the Windows PowerShell
+  version of the report tool.
+- `Qu_App.hta` is the Windows HTA launcher for the PowerShell report tool.
+- `tools/QuApp.IonosPublisher/` contains the SFTP publishing helper source.
+
+## Configuration
+
+Copy `WebApp/config.example.php` to the server-side config file used by your
+deployment process and fill in the database settings outside of GitHub.
+
+Do not commit production passwords, SFTP credentials, import tokens, uploaded
+CSVs, generated reports, or local deployment files.
+
+## Validation
+
+Useful local checks:
+
+```powershell
+node --check .\WebApp\assets\app.js
+Get-ChildItem -Path .\WebApp -Recurse -Filter *.php | ForEach-Object { php -l $_.FullName }
+```
