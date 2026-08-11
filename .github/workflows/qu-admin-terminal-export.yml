@@ -3,24 +3,35 @@ name: QU Admin Terminal Export
 on:
   workflow_dispatch:
   schedule:
-    # 4 AM, 10 AM, 4 PM, and 10 PM America/New_York during daylight saving time.
-    # Adjust to 09,15,21,03 UTC during standard time if exact local-time alignment is required.
+    # Runs every 6 hours starting at 4:00 AM America/New_York during daylight saving time.
+    # GitHub Actions schedules use UTC, so this maps to 4 AM, 10 AM, 4 PM, and 10 PM EDT.
     - cron: "0 8,14,20,2 * * *"
 
 jobs:
   export-and-import:
+    name: Export QU terminals and update dashboard
     runs-on: ubuntu-latest
     timeout-minutes: 20
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - run: npm install
+
+      - name: Install automation dependencies
+        run: npm install
         working-directory: AppData/CloudAutomation
-      - run: npx playwright install --with-deps chromium
+
+      - name: Install Chromium for Playwright
+        run: npx playwright install --with-deps chromium
         working-directory: AppData/CloudAutomation
-      - run: npm run export-and-import
+
+      - name: Export QU Admin terminal CSV and import into web app
+        run: npm run export-and-import
         working-directory: AppData/CloudAutomation
         env:
           QU_ADMIN_URL: https://admin.qubeyond.com/n/operations/terminals

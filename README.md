@@ -28,7 +28,7 @@ historical comparisons.
 
 ## Release Notes
 
-The current application version is `v002.05`.
+The current application version is `v002.06`.
 
 Release history is tracked in [docs/FEATURE_RELEASES.md](docs/FEATURE_RELEASES.md).
 Every completed request receives the next version number and remains available
@@ -57,6 +57,20 @@ deployment process and fill in the database settings outside of GitHub.
 
 Do not commit production passwords, SFTP credentials, import tokens, uploaded
 CSVs, generated reports, or local deployment files.
+
+## GitHub CSV Automation
+
+The workflow at `.github/workflows/qu-admin-terminal-export.yml` can export the
+terminal CSV from QU Admin and import it into the web app automatically every 6
+hours.
+
+Required GitHub repository secrets:
+
+- `QU_ADMIN_USER`
+- `QU_ADMIN_PASS`
+- `QU_APP_IMPORT_TOKEN`
+
+The workflow can also be run manually from GitHub Actions with `workflow_dispatch`.
 
 ## Validation
 

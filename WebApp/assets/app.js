@@ -134,6 +134,14 @@ const FEATURE_RELEASES = [
         type: "Improvement",
         status: "Released",
     },
+    {
+        version: "v002.06",
+        releasedAt: "2026-08-11 16:38:47 -04:00",
+        title: "GitHub Actions CSV Automation",
+        description: "Added a scheduled GitHub Actions workflow that exports the QU Admin terminal CSV every 6 hours and imports it into the web app through the protected cloud-import endpoint.",
+        type: "Feature",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
@@ -733,7 +741,7 @@ function renderReleaseNotes(returnPage = state.currentPage || "dashboard") {
             </div>
             <button class="btn back-btn" id="backToApplicationBtn" type="button">Back to Application</button>
             <div class="release-rules">
-                Version sequence: v001.01 through v001.09, then v002.00, followed by v002.01, v002.02, v002.03, v002.04, v002.05, and so on.
+                Version sequence: v001.01 through v001.09, then v002.00, followed by v002.01, v002.02, v002.03, v002.04, v002.05, v002.06, and so on.
             </div>
             <div class="release-list">
                 ${FEATURE_RELEASES.slice().reverse().map(release => `
