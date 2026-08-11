@@ -16,6 +16,10 @@ try {
         if ($pdo) {
             $latest = Database::latestReport($pdo);
             $report = $latest ? ReportService::reportFromFileUrl(dirname(__DIR__), (string)$latest['jsonUrl']) : null;
+            if ($report && empty($report['summary']['trends']) && !empty($latest['currentUploadId'])) {
+                $fresh = ReportService::reportFromUpload($pdo, (int)$latest['currentUploadId'], dirname(__DIR__));
+                $report = $fresh['report'] ?? $report;
+            }
             echo json_encode(['ok' => true, 'report' => $report, 'metadata' => $latest, 'health' => Database::dashboardHealth($pdo)]);
             exit;
         }

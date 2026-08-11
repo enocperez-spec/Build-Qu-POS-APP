@@ -214,6 +214,8 @@ final class ReportService
         if ($currentStableVersion !== 'N/A') {
             $outOfDateRows = array_values(array_filter($posRows, static fn(array $row): bool => version_compare((string)$row['Current Version'], $currentStableVersion, '<')));
         }
+        $stableUsagePercent = self::percent($currentStableVersionCount, count($posRows));
+        $trends = $previousRows ? self::dashboardTrends($posRows, $previousRows, $currentStableVersion, count($outOfDateRows)) : null;
 
         $storeReport = self::storeVersionReport($posRows, $currentStableVersion);
         $mixedStores = array_values(array_filter($storeReport, static fn(array $store): bool => $store['uniqueVersionCount'] > 1));
@@ -231,11 +233,13 @@ final class ReportService
                 'mostCurrentVersion' => $mostCurrentVersion,
                 'currentStableVersion' => $currentStableVersion,
                 'currentStableVersionCount' => $currentStableVersionCount,
+                'currentStableVersionUsagePercent' => $stableUsagePercent,
                 'outOfDateStores' => self::uniqueCount($outOfDateRows, 'Store ID'),
                 'outOfDatePosTerminals' => count($outOfDateRows),
                 'kioskVersions' => count($kioskVersions),
                 'quboxVersions' => count($quboxVersions),
                 'otherVersions' => count($otherVersions),
+                'trends' => $trends,
             ],
             'downloadableVersions' => $posVersions,
             'kioskVersions' => $kioskVersions,
@@ -250,6 +254,47 @@ final class ReportService
             ],
             'comparison' => $previousRows ? self::comparison($previousRows, $rowsWithVersions) : null,
         ];
+    }
+
+    private static function dashboardTrends(array $currentPosRows, array $previousRows, string $currentStableVersion, int $currentOutOfDateTerminalCount): array
+    {
+        if ($currentStableVersion === 'N/A') {
+            return [];
+        }
+        $previousPosRows = array_values(array_filter($previousRows, static fn(array $row): bool => self::isPosVersion((string)($row['Current Version'] ?? ''))));
+        $previousOutOfDateRows = array_values(array_filter($previousPosRows, static fn(array $row): bool => version_compare((string)$row['Current Version'], $currentStableVersion, '<')));
+        $currentOutOfDateStores = self::uniqueCount(array_values(array_filter($currentPosRows, static fn(array $row): bool => version_compare((string)$row['Current Version'], $currentStableVersion, '<'))), 'Store ID');
+        $previousOutOfDateStores = self::uniqueCount($previousOutOfDateRows, 'Store ID');
+        $currentStableCount = count(array_filter($currentPosRows, static fn(array $row): bool => (string)$row['Current Version'] === $currentStableVersion));
+        $previousStableCount = count(array_filter($previousPosRows, static fn(array $row): bool => (string)($row['Current Version'] ?? '') === $currentStableVersion));
+        $currentUsage = self::percent($currentStableCount, count($currentPosRows));
+        $previousUsage = self::percent($previousStableCount, count($previousPosRows));
+
+        return [
+            'outOfDateStores' => [
+                'current' => $currentOutOfDateStores,
+                'previous' => $previousOutOfDateStores,
+                'delta' => $currentOutOfDateStores - $previousOutOfDateStores,
+            ],
+            'outOfDatePosTerminals' => [
+                'current' => $currentOutOfDateTerminalCount,
+                'previous' => count($previousOutOfDateRows),
+                'delta' => $currentOutOfDateTerminalCount - count($previousOutOfDateRows),
+            ],
+            'stableVersionUsage' => [
+                'currentPercent' => $currentUsage,
+                'previousPercent' => $previousUsage,
+                'deltaPercent' => round($currentUsage - $previousUsage, 1),
+            ],
+        ];
+    }
+
+    private static function percent(int $part, int $whole): float
+    {
+        if ($whole <= 0) {
+            return 0.0;
+        }
+        return round(($part / $whole) * 100, 1);
     }
 
     private static function readCsv(string $path): array

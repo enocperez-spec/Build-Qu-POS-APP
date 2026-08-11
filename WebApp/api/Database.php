@@ -910,7 +910,7 @@ final class Database
         $statement = $pdo->query(
             "SELECT report_name, report_date, source_csv, previous_csv, html_path, json_path,
                     pos_terminal_count, out_of_date_store_count, out_of_date_terminal_count,
-                    current_stable_version, most_current_version, created_at
+                    current_stable_version, most_current_version, current_upload_id, previous_upload_id, created_at
              FROM reports
              ORDER BY created_at DESC
              LIMIT 250"
@@ -928,6 +928,8 @@ final class Database
             'outOfDateTerminals' => (int)$row['out_of_date_terminal_count'],
             'currentStableVersion' => $row['current_stable_version'],
             'mostCurrentVersion' => $row['most_current_version'],
+            'currentUploadId' => isset($row['current_upload_id']) ? (int)$row['current_upload_id'] : null,
+            'previousUploadId' => isset($row['previous_upload_id']) ? (int)$row['previous_upload_id'] : null,
             'modified' => date('c', strtotime($row['created_at'])),
         ], $statement->fetchAll());
     }
@@ -938,7 +940,7 @@ final class Database
         $statement = $pdo->query(
             "SELECT report_name, report_date, source_csv, previous_csv, html_path, json_path,
                     pos_terminal_count, out_of_date_store_count, out_of_date_terminal_count,
-                    current_stable_version, most_current_version, created_at
+                    current_stable_version, most_current_version, current_upload_id, previous_upload_id, created_at
              FROM reports
              ORDER BY created_at DESC
              LIMIT 1"

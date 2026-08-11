@@ -248,6 +248,14 @@ const FEATURE_RELEASES = [
         type: "Improvement",
         status: "Released",
     },
+    {
+        version: "v004.00",
+        releasedAt: "2026-08-11 19:55:00 -04:00",
+        title: "Dashboard Trend Indicators",
+        description: "Added trend labels to dashboard metric cards showing whether out-of-date stores and stable-version usage improved compared with the previous upload.",
+        type: "Improvement",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
@@ -918,7 +926,7 @@ function renderReleaseNotes(returnPage = state.currentPage || "dashboard") {
             </div>
             <button class="btn back-btn" id="backToApplicationBtn" type="button">Back to Application</button>
             <div class="release-rules">
-                Version sequence: v001.01 through v001.09, then v002.00 through v002.09, then v003.00, v003.01, v003.02, v003.03, v003.04, v003.05, v003.06, v003.07, v003.08, and so on.
+                Version sequence: v001.01 through v001.09, then v002.00 through v002.09, then v003.00 through v003.09, then v004.00, v004.01, and so on.
             </div>
             <div class="release-list">
                 ${FEATURE_RELEASES.slice().reverse().map(release => `
@@ -1413,11 +1421,12 @@ function reportView(report) {
 
 function summaryCards(report) {
     const s = report.summary;
+    const trends = s.trends || {};
     return `
         <div class="summary-grid">
             ${metricCard("POS App Terminals", s.posAppTerminals, "Total terminals", "terminals")}
-            ${metricCard("Current Stable Version", s.currentStableVersion, `${s.currentStableVersionCount} terminals`, "stable")}
-            ${metricCard("Out-Of-Date Stores", s.outOfDateStores, "Stores below stable", "outdated")}
+            ${metricCard("Current Stable Version", s.currentStableVersion, `${s.currentStableVersionCount} terminals | ${formatPercent(s.currentStableVersionUsagePercent)} stable usage`, "stable", stableUsageTrend(trends.stableVersionUsage))}
+            ${metricCard("Out-Of-Date Stores", s.outOfDateStores, "Stores below stable", "outdated", outOfDateTrend(trends.outOfDateStores))}
             ${metricCard("Kiosk Versions", s.kioskVersions, "Active versions", "kiosk")}
             ${metricCard("QuBox Versions", s.quboxVersions, "Active versions", "qubox")}
             ${metricCard("Other Versions", s.otherVersions, "Active versions", "other")}
@@ -1428,7 +1437,7 @@ function card(label, value, meta = "") {
     return `<div class="card"><span class="label">${escapeHtml(label)}</span><span class="value">${escapeHtml(value)}</span>${meta ? `<span class="subtle">${escapeHtml(meta)}</span>` : ""}</div>`;
 }
 
-function metricCard(label, value, meta, type) {
+function metricCard(label, value, meta, type, trend = "") {
     return `
         <div class="card metric-card metric-${escapeHtml(type)}">
             <div class="metric-icon" aria-hidden="true">${metricIcon(type)}</div>
@@ -1436,8 +1445,35 @@ function metricCard(label, value, meta, type) {
                 <span class="label">${escapeHtml(label)}</span>
                 <span class="value">${escapeHtml(value)}</span>
                 ${meta ? `<span class="metric-meta">${escapeHtml(meta)}</span>` : ""}
+                ${trend}
             </div>
         </div>`;
+}
+
+function outOfDateTrend(trend) {
+    if (!trend || trend.previous === undefined || trend.previous === null) return "";
+    const delta = Number(trend.delta || 0);
+    if (delta < 0) return trendChip("good", `${Math.abs(delta)} down from ${trend.previous}`);
+    if (delta > 0) return trendChip("bad", `${delta} up from ${trend.previous}`);
+    return trendChip("flat", `No change from ${trend.previous}`);
+}
+
+function stableUsageTrend(trend) {
+    if (!trend || trend.deltaPercent === undefined || trend.deltaPercent === null) return "";
+    const delta = Number(trend.deltaPercent || 0);
+    if (delta > 0) return trendChip("good", `+${delta.toFixed(1)}% stable usage`);
+    if (delta < 0) return trendChip("bad", `${delta.toFixed(1)}% stable usage`);
+    return trendChip("flat", "Stable usage unchanged");
+}
+
+function trendChip(status, label) {
+    const icons = { good: "▲", bad: "▼", flat: "→" };
+    return `<span class="trend-chip trend-${escapeHtml(status)}">${icons[status] || icons.flat} ${escapeHtml(label)}</span>`;
+}
+
+function formatPercent(value) {
+    const number = Number(value);
+    return Number.isFinite(number) ? `${number.toFixed(1)}%` : "0.0%";
 }
 
 function metricIcon(type) {

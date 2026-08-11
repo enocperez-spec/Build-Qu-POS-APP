@@ -31,10 +31,12 @@ historical comparisons.
   latest exported store data.
 - Shows dashboard data-health cards for latest terminal sync, latest store sync,
   and QU EI automation status.
+- Shows dashboard trend indicators for out-of-date stores and stable-version
+  usage compared with the previous upload.
 
 ## Release Notes
 
-The current application version is `v003.09`.
+The current application version is `v004.00`.
 
 Release history is tracked in [docs/FEATURE_RELEASES.md](docs/FEATURE_RELEASES.md).
 Every completed request receives the next version number and remains available
