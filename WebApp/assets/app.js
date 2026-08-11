@@ -288,6 +288,14 @@ const FEATURE_RELEASES = [
         type: "Improvement",
         status: "Released",
     },
+    {
+        version: "v004.05",
+        releasedAt: "2026-08-11 21:25:00 -04:00",
+        title: "QuKDS And QuORB Version Split",
+        description: "Split Other Terminal Versions into dedicated QuKDS and QuORB dashboard cards and report sections while keeping unmatched terminal versions in Other.",
+        type: "Improvement",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
@@ -971,7 +979,7 @@ function renderReleaseNotes(returnPage = state.currentPage || "dashboard") {
             </div>
             <button class="btn back-btn" id="backToApplicationBtn" type="button">Back to Application</button>
             <div class="release-rules">
-                Version sequence: v001.01 through v001.09, then v002.00 through v002.09, then v003.00 through v003.09, then v004.00, v004.01, v004.02, v004.03, v004.04, and so on.
+                Version sequence: v001.01 through v001.09, then v002.00 through v002.09, then v003.00 through v003.09, then v004.00, v004.01, v004.02, v004.03, v004.04, v004.05, and so on.
             </div>
             <div class="release-list">
                 ${FEATURE_RELEASES.slice().reverse().map(release => `
@@ -1473,6 +1481,8 @@ function summaryCards(report) {
             ${metricCard("Out-Of-Date Stores", s.outOfDateStores, "Stores below stable", "outdated", "", "outdated-stores")}
             ${metricCard("Kiosk Versions", s.kioskVersions, "Active versions", "kiosk", "", "kiosk")}
             ${metricCard("QuBox Versions", s.quboxVersions, "Active versions", "qubox", "", "qubox")}
+            ${metricCard("QuKDS Versions", s.qukdsVersions || 0, "Active versions", "qukds", "", "qukds")}
+            ${metricCard("QuORB Versions", s.quorbVersions || 0, "Order Ready Boards", "quorb", "", "quorb")}
             ${metricCard("Other Versions", s.otherVersions, "Active versions", "other", "", "other")}
         </div>`;
 }
@@ -1506,6 +1516,8 @@ function metricIcon(type) {
         outdated: `<svg viewBox="0 0 48 48"><path d="M24 6 44 40H4L24 6Z"></path><path d="M24 17v11M24 35h.01"></path></svg>`,
         kiosk: `<svg viewBox="0 0 48 48"><rect x="15" y="5" width="18" height="34" rx="2"></rect><path d="M19 34h10M21 43h6"></path></svg>`,
         qubox: `<svg viewBox="0 0 48 48"><path d="m24 5 16 9v20l-16 9-16-9V14l16-9Z"></path><path d="M8 14l16 9 16-9M24 23v20"></path></svg>`,
+        qukds: `<svg viewBox="0 0 48 48"><rect x="7" y="8" width="34" height="24" rx="3"></rect><path d="M15 40h18M20 32v8M28 32v8M16 18h16M16 24h10"></path></svg>`,
+        quorb: `<svg viewBox="0 0 48 48"><rect x="8" y="10" width="32" height="28" rx="4"></rect><path d="M16 20h16M16 28h10M33 28l4 4 7-9"></path></svg>`,
         other: `<svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="16"></circle><path d="M16 24h16M24 16v16"></path></svg>`,
     };
     return icons[type] || icons.other;
@@ -1524,6 +1536,8 @@ function currentTab(report) {
         ${outdatedSection(report)}
         ${versionSection("Downloadable Kiosk Versions", report.kioskVersions, report, "kiosk-versions")}
         ${versionSection("QuBox Versions", report.quboxVersions, report, "qubox-versions")}
+        ${versionSection("QuKDS Versions", report.qukdsVersions, report, "qukds-versions")}
+        ${versionSection("QuORB Versions", report.quorbVersions, report, "quorb-versions")}
         ${versionSection("Other Terminal Versions", report.otherVersions, report, "other-versions")}`;
 }
 
@@ -1658,6 +1672,8 @@ function followDashboardShortcut(shortcut) {
         "outdated-stores": () => activateReportTab("stores", "out-of-date-store"),
         kiosk: () => activateReportTab("current", "", "kiosk-versions"),
         qubox: () => activateReportTab("current", "", "qubox-versions"),
+        qukds: () => activateReportTab("current", "", "qukds-versions"),
+        quorb: () => activateReportTab("current", "", "quorb-versions"),
         other: () => activateReportTab("current", "", "other-versions"),
     };
     (actions[shortcut] || actions.pos)();

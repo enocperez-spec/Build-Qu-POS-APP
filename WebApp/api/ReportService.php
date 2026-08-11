@@ -191,18 +191,24 @@ final class ReportService
 
         $posRows = array_values(array_filter($rowsWithVersions, static fn(array $row): bool => self::isPosVersion((string)$row['Current Version'])));
         $otherRows = array_values(array_filter($rowsWithVersions, static fn(array $row): bool => !self::isPosVersion((string)$row['Current Version'])));
-        $kioskRows = array_values(array_filter($otherRows, static fn(array $row): bool => strcasecmp((string)($row['Terminal Type'] ?? ''), 'Kiosk') === 0 || self::isKioskVersion((string)$row['Current Version'])));
-        $quboxRows = array_values(array_filter($otherRows, static fn(array $row): bool => strcasecmp((string)($row['Terminal Type'] ?? ''), 'QuBox') === 0 || self::isQuBoxVersion((string)$row['Current Version'])));
-        $remainingOtherRows = array_values(array_filter($otherRows, static fn(array $row): bool => !in_array($row, $kioskRows, true) && !in_array($row, $quboxRows, true)));
+        $kioskRows = array_values(array_filter($otherRows, static fn(array $row): bool => self::isKioskRow($row)));
+        $quboxRows = array_values(array_filter($otherRows, static fn(array $row): bool => self::isQuBoxRow($row)));
+        $qukdsRows = array_values(array_filter($otherRows, static fn(array $row): bool => self::isQuKdsRow($row)));
+        $quorbRows = array_values(array_filter($otherRows, static fn(array $row): bool => self::isQuOrbRow($row)));
+        $remainingOtherRows = array_values(array_filter($otherRows, static fn(array $row): bool => !self::isKioskRow($row) && !self::isQuBoxRow($row) && !self::isQuKdsRow($row) && !self::isQuOrbRow($row)));
 
         $posVersions = self::versionGroups($posRows, 'pos');
         $kioskVersions = self::versionGroups($kioskRows, 'kiosk');
         $quboxVersions = self::versionGroups($quboxRows, 'qubox');
+        $qukdsVersions = self::versionGroups($qukdsRows, 'qukds');
+        $quorbVersions = self::versionGroups($quorbRows, 'quorb');
         $otherVersions = self::versionGroups($remainingOtherRows, 'other');
 
         usort($posVersions, static fn(array $a, array $b): int => version_compare($b['version'], $a['version']));
         usort($kioskVersions, static fn(array $a, array $b): int => $b['terminalCount'] <=> $a['terminalCount'] ?: strcmp($b['version'], $a['version']));
         usort($quboxVersions, static fn(array $a, array $b): int => $b['terminalCount'] <=> $a['terminalCount'] ?: strcmp($b['version'], $a['version']));
+        usort($qukdsVersions, static fn(array $a, array $b): int => $b['terminalCount'] <=> $a['terminalCount'] ?: strcmp($b['version'], $a['version']));
+        usort($quorbVersions, static fn(array $a, array $b): int => $b['terminalCount'] <=> $a['terminalCount'] ?: strcmp($b['version'], $a['version']));
         usort($otherVersions, static fn(array $a, array $b): int => $b['terminalCount'] <=> $a['terminalCount'] ?: strcmp($b['version'], $a['version']));
 
         $mostCurrentVersion = $posVersions[0]['version'] ?? 'N/A';
@@ -238,12 +244,16 @@ final class ReportService
                 'outOfDatePosTerminals' => count($outOfDateRows),
                 'kioskVersions' => count($kioskVersions),
                 'quboxVersions' => count($quboxVersions),
+                'qukdsVersions' => count($qukdsVersions),
+                'quorbVersions' => count($quorbVersions),
                 'otherVersions' => count($otherVersions),
                 'trends' => $trends,
             ],
             'downloadableVersions' => $posVersions,
             'kioskVersions' => $kioskVersions,
             'quboxVersions' => $quboxVersions,
+            'qukdsVersions' => $qukdsVersions,
+            'quorbVersions' => $quorbVersions,
             'otherVersions' => $otherVersions,
             'outOfDateVersionSummary' => self::outOfDateVersionSummary($outOfDateRows),
             'stores' => $storeReport,
@@ -561,9 +571,46 @@ final class ReportService
         return preg_match('/^4\.1\.\d+-\d+$/', trim($version)) === 1;
     }
 
+    private static function isKioskRow(array $row): bool
+    {
+        return strcasecmp((string)($row['Terminal Type'] ?? ''), 'Kiosk') === 0 || self::isKioskVersion((string)($row['Current Version'] ?? ''));
+    }
+
     private static function isQuBoxVersion(string $version): bool
     {
         return preg_match('/^3\.6\.\d+-\d+$/', trim($version)) === 1;
+    }
+
+    private static function isQuBoxRow(array $row): bool
+    {
+        return strcasecmp((string)($row['Terminal Type'] ?? ''), 'QuBox') === 0 || self::isQuBoxVersion((string)($row['Current Version'] ?? ''));
+    }
+
+    private static function isQuKdsRow(array $row): bool
+    {
+        return preg_match('/\b(qu\s*kds|kds|kitchen\s*display)\b/i', self::classificationText($row)) === 1;
+    }
+
+    private static function isQuOrbRow(array $row): bool
+    {
+        return preg_match('/\b(qu\s*orb|orb|order\s*ready\s*board)\b/i', self::classificationText($row)) === 1;
+    }
+
+    private static function classificationText(array $row): string
+    {
+        $fields = [
+            'Terminal Type',
+            'Computer Name',
+            'Terminal Name',
+            'Name',
+            'Terminal ID',
+            'Current Version',
+        ];
+        $values = [];
+        foreach ($fields as $field) {
+            $values[] = (string)($row[$field] ?? '');
+        }
+        return implode(' ', $values);
     }
 
     private static function releaseTrain(string $version): string

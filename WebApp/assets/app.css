@@ -624,6 +624,8 @@ h2 {
 .metric-terminals,
 .metric-kiosk,
 .metric-qubox,
+.metric-qukds,
+.metric-quorb,
 .metric-other {
     border-color: rgba(35, 199, 255, .28);
 }
@@ -631,6 +633,8 @@ h2 {
 .metric-terminals .metric-icon,
 .metric-kiosk .metric-icon,
 .metric-qubox .metric-icon,
+.metric-qukds .metric-icon,
+.metric-quorb .metric-icon,
 .metric-other .metric-icon {
     color: #17c8ff;
 }
@@ -658,6 +662,8 @@ h2 {
 
 .metric-kiosk .value,
 .metric-qubox .value,
+.metric-qukds .value,
+.metric-quorb .value,
 .metric-other .value {
     color: #8fdcff;
 }

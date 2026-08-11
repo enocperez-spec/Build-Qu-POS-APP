@@ -1,9 +1,9 @@
 # QU POS Application Version Tools
 
 QU POS Application Version Tools is a web dashboard for tracking QU POS, Kiosk,
-QuBox, and other terminal application versions across stores. It turns uploaded
-terminal CSV exports into searchable reports, dashboard metrics, alerts, and
-historical comparisons.
+QuBox, QuKDS, QuORB, and other terminal application versions across stores. It
+turns uploaded terminal CSV exports into searchable reports, dashboard metrics,
+alerts, and historical comparisons.
 
 ![Dashboard screenshot](docs/images/dashboard.png)
 
@@ -13,8 +13,8 @@ historical comparisons.
 - Automatically treats the newest upload as the current dataset and the previous
   upload as the comparison dataset.
 - Generates a dashboard showing POS app terminals, current stable version,
-  out-of-date stores, Kiosk versions, QuBox versions, and other detected
-  versions.
+  out-of-date stores, Kiosk versions, QuBox versions, QuKDS versions, QuORB
+  versions, and other detected versions.
 - Provides searchable report tabs for current versions, store version reports,
   alerts, and comparisons.
 - Identifies mixed-version stores, stale terminals, stores behind the stable
@@ -38,7 +38,7 @@ historical comparisons.
 
 ## Release Notes
 
-The current application version is `v004.04`.
+The current application version is `v004.05`.
 
 Release history is tracked in [docs/FEATURE_RELEASES.md](docs/FEATURE_RELEASES.md).
 Every completed request receives the next version number and remains available
