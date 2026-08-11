@@ -74,21 +74,33 @@ async function fillFirst(page, choices, value) {
   throw new Error(`Could not fill target. Last error: ${lastError?.message || 'none'}`);
 }
 
-async function waitForLoginOrTarget(page) {
+function actionsButton(page) {
+  return page.locator('button, [role="button"]').filter({ hasText: /actions?/i }).first();
+}
+
+function usernameInput(page) {
+  return page.locator('input[name="username"], input[type="text"]:visible').first();
+}
+
+async function isActionsReady(page) {
+  return actionsButton(page).isVisible().catch(() => false);
+}
+
+async function isLoginReady(page) {
+  return usernameInput(page).isVisible().catch(() => false);
+}
+
+async function waitForLoginOrActions(page) {
   await Promise.race([
-    page.waitForURL(/\/login\b/i, { timeout: settings.timeoutMs }).catch(() => {}),
-    page.locator('input[name="username"], input[type="text"], input.e-input').first().waitFor({ state: 'visible', timeout: settings.timeoutMs }).catch(() => {}),
-    page.waitForURL(/\/operations\/terminals/i, { timeout: settings.timeoutMs }).catch(() => {}),
+    usernameInput(page).waitFor({ state: 'visible', timeout: settings.timeoutMs }).catch(() => {}),
+    actionsButton(page).waitFor({ state: 'visible', timeout: settings.timeoutMs }).catch(() => {}),
   ]);
 }
 
 async function loginIfNeeded(page) {
-  const isLoginPage = () => /\/login\b/i.test(new URL(page.url()).pathname);
-  const isTargetPage = () => /\/operations\/terminals/i.test(new URL(page.url()).pathname);
-  await waitForLoginOrTarget(page);
-  if (isTargetPage()) return;
-  const hasLoginForm = await page.locator('input[name="username"], input[type="text"], input.e-input').first().isVisible().catch(() => false);
-  if (!isLoginPage() && !hasLoginForm) return;
+  await waitForLoginOrActions(page);
+  if (await isActionsReady(page)) return;
+  if (!(await isLoginReady(page))) return;
 
   console.log('Login page detected.');
   await fillFirst(page, [
@@ -107,7 +119,20 @@ async function loginIfNeeded(page) {
   ]);
   await page.waitForLoadState('networkidle', { timeout: settings.timeoutMs }).catch(() => {});
   await page.waitForURL(url => !/\/login\b/i.test(url.pathname), { timeout: 30000 }).catch(() => {});
-  if (isLoginPage()) throw new Error('QU Admin login did not complete.');
+  await page.waitForTimeout(2500);
+  if (await isLoginReady(page)) throw new Error('QU Admin login did not complete.');
+}
+
+async function ensureTerminalPage(page) {
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    await loginIfNeeded(page);
+    if (await isActionsReady(page)) return;
+    await page.goto(settings.quUrl, { waitUntil: 'domcontentloaded', timeout: settings.timeoutMs });
+  }
+  await waitForLoginOrActions(page);
+  if (!(await isActionsReady(page))) {
+    throw new Error(`QU Admin terminals page did not become ready. Current URL: ${page.url()}`);
+  }
 }
 
 async function exportTerminals() {
@@ -118,15 +143,11 @@ async function exportTerminals() {
 
   try {
     await page.goto(settings.quUrl, { waitUntil: 'domcontentloaded', timeout: settings.timeoutMs });
-    await loginIfNeeded(page);
-    if (!page.url().includes('/operations/terminals')) {
-      await page.goto(settings.quUrl, { waitUntil: 'networkidle', timeout: settings.timeoutMs });
-      await loginIfNeeded(page);
-    }
+    await ensureTerminalPage(page);
 
     await clickFirst(page, [
       { name: 'Actions button', locator: p => p.getByRole('button', { name: /^actions?$/i }) },
-      { name: 'Actions-like button', locator: p => p.locator('button, [role="button"]').filter({ hasText: /actions?/i }) },
+      { name: 'Actions-like button', locator: p => actionsButton(p) },
     ]);
 
     const downloadPromise = page.waitForEvent('download', { timeout: settings.timeoutMs });
