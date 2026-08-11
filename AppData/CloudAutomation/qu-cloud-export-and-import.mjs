@@ -84,7 +84,9 @@ async function waitForLoginOrTarget(page) {
 
 async function loginIfNeeded(page) {
   const isLoginPage = () => /\/login\b/i.test(new URL(page.url()).pathname);
+  const isTargetPage = () => /\/operations\/terminals/i.test(new URL(page.url()).pathname);
   await waitForLoginOrTarget(page);
+  if (isTargetPage()) return;
   const hasLoginForm = await page.locator('input[name="username"], input[type="text"], input.e-input').first().isVisible().catch(() => false);
   if (!isLoginPage() && !hasLoginForm) return;
 

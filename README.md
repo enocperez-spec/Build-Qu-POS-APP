@@ -28,7 +28,7 @@ historical comparisons.
 
 ## Release Notes
 
-The current application version is `v002.09`.
+The current application version is `v003.00`.
 
 Release history is tracked in [docs/FEATURE_RELEASES.md](docs/FEATURE_RELEASES.md).
 Every completed request receives the next version number and remains available

@@ -166,6 +166,14 @@ const FEATURE_RELEASES = [
         type: "Bug Fix",
         status: "Released",
     },
+    {
+        version: "v003.00",
+        releasedAt: "2026-08-11 17:45:44 -04:00",
+        title: "QU Export Target Page Detection",
+        description: "Fixed the GitHub Actions QU export automation so it stops retrying login after successfully reaching the terminals page.",
+        type: "Bug Fix",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
@@ -782,7 +790,7 @@ function renderReleaseNotes(returnPage = state.currentPage || "dashboard") {
             </div>
             <button class="btn back-btn" id="backToApplicationBtn" type="button">Back to Application</button>
             <div class="release-rules">
-                Version sequence: v001.01 through v001.09, then v002.00, followed by v002.01, v002.02, v002.03, v002.04, v002.05, v002.06, v002.07, v002.08, v002.09, and so on.
+                Version sequence: v001.01 through v001.09, then v002.00 through v002.09, then v003.00, followed by v003.01, v003.02, and so on.
             </div>
             <div class="release-list">
                 ${FEATURE_RELEASES.slice().reverse().map(release => `

@@ -1,9 +1,10 @@
 # Release Notes
 
-Current application version: `v002.09`
+Current application version: `v003.00`
 
 Version sequence: `v001.01` through `v001.09`, then `v002.00`, followed by
-`v002.01`, `v002.02`, `v002.03`, `v002.04`, `v002.05`, `v002.06`, `v002.07`, `v002.08`, `v002.09`, and so on.
+`v002.00` through `v002.09`, then `v003.00`, followed by `v003.01`,
+`v003.02`, and so on.
 
 Going forward, every approved and completed feature, improvement, bug fix, or
 security change should add a new entry here and update the current application
@@ -13,6 +14,7 @@ Newest releases are listed first.
 
 | Version | Release Date And Time | Type | Title | Description | Status |
 | --- | --- | --- | --- | --- | --- |
+| v003.00 | 2026-08-11 17:45:44 -04:00 | Bug Fix | QU Export Target Page Detection | Fixed the GitHub Actions QU export automation so it stops retrying login after successfully reaching the terminals page. | Released |
 | v002.09 | 2026-08-11 17:36:33 -04:00 | Bug Fix | QU Admin Login Automation Fix | Improved the GitHub Actions QU Admin login flow to wait for the login form, fill visible username and password fields, and confirm login before searching for the Actions button. | Released |
 | v002.08 | 2026-08-11 17:21:32 -04:00 | Improvement | QU Export Failure Diagnostics | Added GitHub Actions failure artifacts for the QU Admin export automation, including screenshot, page HTML, URL, page title, and error summary. | Released |
 | v002.07 | 2026-08-11 16:41:10 -04:00 | Improvement | Dashboard Last Updated Header | Replaced the current date and time under the username with a Dashboard Last Updated timestamp based on the loaded report generation time. | Released |
