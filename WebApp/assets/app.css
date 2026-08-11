@@ -155,6 +155,19 @@ h2 {
 
 .subtle { color: var(--muted); }
 
+.version-chip {
+    display: inline-flex;
+    width: fit-content;
+    margin-top: 2px;
+    border: 1px solid rgba(35, 199, 255, .34);
+    border-radius: 999px;
+    padding: 5px 10px;
+    color: #bfeeff;
+    background: rgba(35, 199, 255, .08);
+    font-size: 12px;
+    font-weight: 800;
+}
+
 .panel {
     background: linear-gradient(180deg, rgba(16, 29, 50, .92), rgba(11, 22, 38, .92));
     border: 1px solid var(--line);
@@ -677,6 +690,94 @@ details.version-detail summary span {
     margin: 0;
 }
 
+.release-panel {
+    padding: clamp(18px, 3vw, 26px);
+}
+
+.release-heading {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    align-items: flex-start;
+}
+
+.release-heading h2 {
+    margin-top: 0;
+}
+
+.release-current {
+    border: 1px solid rgba(35, 199, 255, .34);
+    border-radius: 16px;
+    padding: 14px 16px;
+    min-width: 180px;
+    background: rgba(35, 199, 255, .08);
+}
+
+.release-current strong {
+    display: block;
+    margin-top: 6px;
+    color: var(--cyan);
+    font-size: 28px;
+    line-height: 1;
+}
+
+.release-rules {
+    border-left: 4px solid var(--cyan);
+    color: #d7efff;
+    margin: 0 0 18px;
+    padding: 12px 14px;
+    background: rgba(35, 199, 255, .06);
+}
+
+.release-list {
+    display: grid;
+    gap: 14px;
+}
+
+.release-card {
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 16px;
+    background: rgba(8, 17, 32, .52);
+}
+
+.release-card h3 {
+    margin: 10px 0 8px;
+}
+
+.release-card p {
+    color: #dcecff;
+    line-height: 1.5;
+}
+
+.release-meta {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.release-version,
+.release-type,
+.release-status {
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 4px 9px;
+    font-size: 12px;
+    font-weight: 900;
+}
+
+.release-version {
+    color: var(--cyan);
+    border-color: rgba(35, 199, 255, .52);
+}
+
+.release-type.feature { color: #d9f6ff; border-color: var(--cyan); }
+.release-type.improvement { color: #fff0b3; border-color: var(--yellow); }
+.release-type.bug-fix { color: #ffe1b8; border-color: var(--orange); }
+.release-type.security { color: #ceffd9; border-color: var(--green); }
+.release-status { color: var(--green); border-color: rgba(71, 214, 111, .45); }
+
 .report-only {
     max-width: 1720px;
     margin: 0 auto;
@@ -692,7 +793,7 @@ details.version-detail summary span {
 
 @media (max-width: 640px) {
     .main { padding: 18px; }
-    .topbar, .toolbar, .report-item { flex-direction: column; align-items: stretch; }
+    .topbar, .toolbar, .report-item, .release-heading { flex-direction: column; align-items: stretch; }
     .user-menu { justify-content: space-between; text-align: left; min-width: 0; }
     .selector-actions { grid-template-columns: 1fr; }
     .summary-grid { grid-template-columns: 1fr; }

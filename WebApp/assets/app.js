@@ -12,6 +12,107 @@ const state = {
     currentPage: "dashboard",
 };
 
+const FEATURE_RELEASES = [
+    {
+        version: "v001.01",
+        releasedAt: "2026-08-11 10:15:00 -04:00",
+        title: "HTML5 Web Application Foundation",
+        description: "Created the IONOS-ready PHP and HTML5 web application foundation for uploading terminal CSV files, generating searchable QU POS reports, and displaying the latest dashboard report.",
+        type: "Feature",
+        status: "Released",
+    },
+    {
+        version: "v001.02",
+        releasedAt: "2026-08-11 10:35:00 -04:00",
+        title: "CSV Upload History",
+        description: "Added database-backed CSV uploads so every uploaded file is retained as historical data instead of replacing the previous dataset.",
+        type: "Feature",
+        status: "Released",
+    },
+    {
+        version: "v001.03",
+        releasedAt: "2026-08-11 10:55:00 -04:00",
+        title: "Current And Previous CSV Comparison",
+        description: "Added comparison logic so the newest CSV becomes the current dataset and the immediately previous upload becomes the comparison dataset.",
+        type: "Feature",
+        status: "Released",
+    },
+    {
+        version: "v001.04",
+        releasedAt: "2026-08-11 11:15:00 -04:00",
+        title: "Protected Login And Two-Factor Authentication",
+        description: "Added protected sign-in, first-admin setup, authenticator-app two-factor verification, and QR-code setup support.",
+        type: "Security",
+        status: "Released",
+    },
+    {
+        version: "v001.05",
+        releasedAt: "2026-08-11 11:35:00 -04:00",
+        title: "User Roles And User Management",
+        description: "Added Admin, Tech, and Read-Only roles with user creation, role assignment, activation, deactivation, deletion, and 2FA reset controls.",
+        type: "Feature",
+        status: "Released",
+    },
+    {
+        version: "v001.06",
+        releasedAt: "2026-08-11 11:55:00 -04:00",
+        title: "Dashboard Historical Upload Selector",
+        description: "Added a dashboard dropdown for loading past CSV uploads while keeping the dashboard focused on the latest generated report by default.",
+        type: "Improvement",
+        status: "Released",
+    },
+    {
+        version: "v001.07",
+        releasedAt: "2026-08-11 12:20:00 -04:00",
+        title: "Navigation And Logout Polish",
+        description: "Highlighted the active navigation page and moved Log Out to the top-right user area with compact red button styling.",
+        type: "Improvement",
+        status: "Released",
+    },
+    {
+        version: "v001.08",
+        releasedAt: "2026-08-11 13:05:00 -04:00",
+        title: "Cloud Import Automation Endpoint",
+        description: "Added a protected cloud-import endpoint and GitHub Actions Playwright automation template for scheduled QU Admin terminal export and web-app import.",
+        type: "Feature",
+        status: "Released",
+    },
+    {
+        version: "v001.09",
+        releasedAt: "2026-08-11 14:25:00 -04:00",
+        title: "Dashboard Metric Card Icons And Colors",
+        description: "Added icon-based dashboard metric cards with distinct colors for POS terminals, stable version, out-of-date stores, Kiosk versions, QuBox versions, and other versions.",
+        type: "Improvement",
+        status: "Released",
+    },
+    {
+        version: "v002.00",
+        releasedAt: "2026-08-11 14:45:00 -04:00",
+        title: "Responsive Stable-Version Card",
+        description: "Improved dashboard card responsiveness so long stable-version values resize and stay inside the metric card on narrower screens.",
+        type: "Bug Fix",
+        status: "Released",
+    },
+    {
+        version: "v002.01",
+        releasedAt: "2026-08-11 15:30:05 -04:00",
+        title: "GitHub README And Dashboard Screenshot",
+        description: "Updated the GitHub README with a full application overview, role descriptions, project layout, validation commands, and a dashboard screenshot.",
+        type: "Improvement",
+        status: "Released",
+    },
+    {
+        version: "v002.02",
+        releasedAt: "2026-08-11 16:25:49 -04:00",
+        title: "Feature Release Tracking",
+        description: "Added a Feature Releases section and version-tracking history so each completed request can be recorded with version, date, title, description, change type, and release status.",
+        type: "Feature",
+        status: "Released",
+    },
+];
+
+const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
+
 const app = document.getElementById("app");
 
 function escapeHtml(value) {
@@ -79,6 +180,7 @@ function shell(content, page = state.currentPage || "dashboard") {
                 <button class="${navClass("reports")}" id="reportsNavBtn">View Reports</button>
                 ${uploadNav}
                 <button class="${navClass("alerts")}" id="alertsNavBtn">Alerts</button>
+                <button class="${navClass("releases")}" id="releasesNavBtn">Feature Releases</button>
                 ${adminNav}
             </aside>
             <main class="main">${content}</main>
@@ -93,6 +195,7 @@ function header() {
                 <div>
                     <h1>QU POS Application Version Tools</h1>
                     <p class="subtle">QU terminal Generate A Searchable Version Report.</p>
+                    <span class="version-chip">Application Version ${escapeHtml(APP_VERSION)}</span>
                 </div>
             </div>
             <div class="user-menu">
@@ -370,6 +473,7 @@ function bindShell() {
     document.getElementById("dashboardNavBtn")?.addEventListener("click", renderHome);
     document.getElementById("uploadNavBtn")?.addEventListener("click", renderUploadPage);
     document.getElementById("alertsNavBtn")?.addEventListener("click", renderAlertsPage);
+    document.getElementById("releasesNavBtn")?.addEventListener("click", renderFeatureReleases);
     document.getElementById("usersNavBtn")?.addEventListener("click", renderUsers);
 }
 
@@ -567,6 +671,41 @@ async function renderAlertsPage() {
     if (tabContentElement && state.report) {
         tabContentElement.innerHTML = tabContent(state.report, "alerts");
     }
+}
+
+function renderFeatureReleases() {
+    state.currentPage = "releases";
+    app.innerHTML = shell(header() + `
+        <section class="panel release-panel">
+            <div class="release-heading">
+                <div>
+                    <h2>Feature Releases</h2>
+                    <p class="subtle">Every completed feature, improvement, bug fix, or security change receives the next application version number.</p>
+                </div>
+                <div class="release-current">
+                    <span class="label">Current Version</span>
+                    <strong>${escapeHtml(APP_VERSION)}</strong>
+                </div>
+            </div>
+            <div class="release-rules">
+                Version sequence: v001.01 through v001.09, then v002.00, followed by v002.01, v002.02, and so on.
+            </div>
+            <div class="release-list">
+                ${FEATURE_RELEASES.slice().reverse().map(release => `
+                    <article class="release-card">
+                        <div class="release-meta">
+                            <span class="release-version">${escapeHtml(release.version)}</span>
+                            <span class="release-type ${escapeHtml(release.type.toLowerCase().replaceAll(" ", "-"))}">${escapeHtml(release.type)}</span>
+                            <span class="release-status">${escapeHtml(release.status)}</span>
+                        </div>
+                        <h3>${escapeHtml(release.title)}</h3>
+                        <p>${escapeHtml(release.description)}</p>
+                        <div class="subtle">${escapeHtml(release.releasedAt)}</div>
+                    </article>
+                `).join("")}
+            </div>
+        </section>`, "releases");
+    bindShell();
 }
 
 async function renderUsers() {
