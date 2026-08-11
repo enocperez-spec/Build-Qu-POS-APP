@@ -1,6 +1,6 @@
 # Release Notes
 
-Current application version: `v003.01`
+Current application version: `v003.02`
 
 Version sequence: `v001.01` through `v001.09`, then `v002.00`, followed by
 `v002.00` through `v002.09`, then `v003.00`, `v003.01`, `v003.02`, and so on.
@@ -13,6 +13,7 @@ Newest releases are listed first.
 
 | Version | Release Date And Time | Type | Title | Description | Status |
 | --- | --- | --- | --- | --- | --- |
+| v003.02 | 2026-08-11 18:06:43 -04:00 | Improvement | Upload Page Report Cleanup | Removed the dashboard/report view from the Upload CSV page so the section only shows upload controls and CSV Upload History. | Released |
 | v003.01 | 2026-08-11 17:48:33 -04:00 | Bug Fix | QU Export Readiness Detection | Improved the QU Admin automation to wait for the actual login form or Actions button instead of relying on URL timing during redirects. | Released |
 | v003.00 | 2026-08-11 17:45:44 -04:00 | Bug Fix | QU Export Target Page Detection | Fixed the GitHub Actions QU export automation so it stops retrying login after successfully reaching the terminals page. | Released |
 | v002.09 | 2026-08-11 17:36:33 -04:00 | Bug Fix | QU Admin Login Automation Fix | Improved the GitHub Actions QU Admin login flow to wait for the login form, fill visible username and password fields, and confirm login before searching for the Actions button. | Released |

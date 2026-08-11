@@ -182,6 +182,14 @@ const FEATURE_RELEASES = [
         type: "Bug Fix",
         status: "Released",
     },
+    {
+        version: "v003.02",
+        releasedAt: "2026-08-11 18:06:43 -04:00",
+        title: "Upload Page Report Cleanup",
+        description: "Removed the dashboard/report view from the Upload CSV page so the section only shows upload controls and CSV Upload History.",
+        type: "Improvement",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
@@ -385,10 +393,9 @@ function renderUploadPage() {
         renderHome();
         return;
     }
-    app.innerHTML = shell(header() + uploadPanel() + `<section class="panel" style="padding:20px;margin-top:18px;"><h2>CSV Upload History</h2><div id="uploadHistory" class="report-list"><div class="empty">Loading upload history...</div></div></section><div id="reportMount">${state.report ? reportView(state.report) : emptyState()}</div>`, "upload");
+    app.innerHTML = shell(header() + uploadPanel() + `<section class="panel" style="padding:20px;margin-top:18px;"><h2>CSV Upload History</h2><div id="uploadHistory" class="report-list"><div class="empty">Loading upload history...</div></div></section>`, "upload");
     bindShell();
     bindUpload();
-    if (state.report) bindReport();
     loadUploads();
 }
 
@@ -634,8 +641,6 @@ async function generateReport() {
         state.htmlUrl = payload.htmlUrl;
         setStep(4, "Done");
         refreshHeaderLastUpdated();
-        document.getElementById("reportMount").innerHTML = reportView(state.report);
-        bindReport();
         await loadUploads();
     } catch (error) {
         document.getElementById("statusMessage").textContent = error.message;
