@@ -142,6 +142,14 @@ const FEATURE_RELEASES = [
         type: "Feature",
         status: "Released",
     },
+    {
+        version: "v002.07",
+        releasedAt: "2026-08-11 16:41:10 -04:00",
+        title: "Dashboard Last Updated Header",
+        description: "Replaced the current date and time under the username with a Dashboard Last Updated timestamp based on the loaded report generation time.",
+        type: "Improvement",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
@@ -197,6 +205,15 @@ function roleLabel(role) {
     return "Read-Only";
 }
 
+function dashboardLastUpdatedLabel() {
+    return state.report?.generatedOn || "Not loaded yet";
+}
+
+function refreshHeaderLastUpdated() {
+    const element = document.getElementById("dashboardLastUpdated");
+    if (element) element.textContent = dashboardLastUpdatedLabel();
+}
+
 function navClass(page) {
     return `nav-item nav-button${state.currentPage === page ? " active" : ""}`;
 }
@@ -239,7 +256,12 @@ function header() {
                 </div>
             </div>
             <div class="user-menu">
-                <div class="subtle">${escapeHtml(state.user?.displayName || "")}<br>${escapeHtml(roleLabel(state.user?.role))}<br>${new Date().toLocaleString()}</div>
+                <div class="subtle">
+                    ${escapeHtml(state.user?.displayName || "")}<br>
+                    ${escapeHtml(roleLabel(state.user?.role))}<br>
+                    Dashboard Last Updated<br>
+                    <span id="dashboardLastUpdated">${escapeHtml(dashboardLastUpdatedLabel())}</span>
+                </div>
                 ${state.user ? `<button class="btn logout-btn" id="logoutBtn" type="button">Log Out</button>` : ""}
             </div>
         </div>`;
@@ -579,6 +601,7 @@ async function generateReport() {
         state.report = payload.report;
         state.htmlUrl = payload.htmlUrl;
         setStep(4, "Done");
+        refreshHeaderLastUpdated();
         document.getElementById("reportMount").innerHTML = reportView(state.report);
         bindReport();
         await loadUploads();
@@ -601,6 +624,7 @@ async function loadLatestReport() {
         }
         state.report = payload.report;
         state.htmlUrl = payload.metadata?.url || null;
+        refreshHeaderLastUpdated();
         mount.innerHTML = reportView(state.report);
         bindReport();
     } catch (error) {
@@ -636,6 +660,7 @@ async function loadReportFromUpload(id) {
         state.report = payload.report;
         state.selectedUploadId = String(id);
         state.htmlUrl = null;
+        refreshHeaderLastUpdated();
         mount.innerHTML = reportView(state.report);
         bindReport();
     } catch (error) {
@@ -741,7 +766,7 @@ function renderReleaseNotes(returnPage = state.currentPage || "dashboard") {
             </div>
             <button class="btn back-btn" id="backToApplicationBtn" type="button">Back to Application</button>
             <div class="release-rules">
-                Version sequence: v001.01 through v001.09, then v002.00, followed by v002.01, v002.02, v002.03, v002.04, v002.05, v002.06, and so on.
+                Version sequence: v001.01 through v001.09, then v002.00, followed by v002.01, v002.02, v002.03, v002.04, v002.05, v002.06, v002.07, and so on.
             </div>
             <div class="release-list">
                 ${FEATURE_RELEASES.slice().reverse().map(release => `
