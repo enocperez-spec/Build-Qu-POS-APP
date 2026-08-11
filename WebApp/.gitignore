@@ -1,0 +1,5 @@
+config.local.php
+data/reports/*
+data/uploads/*
+!data/reports/
+!data/uploads/

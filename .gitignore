@@ -1,0 +1,72 @@
+# Secrets / local config
+WebApp/config.php
+*.credential.xml
+*.key
+*.pem
+*.pfx
+*.env
+.env
+.env.*
+ionos-sftp.json
+qu-cloud-import-token.txt
+
+# Local deployment / automation data
+AppData/Deployment/
+AppData/Automation/
+AppData/CloudAutomation/node_modules/
+AppData/Automation/Downloads/
+AppData/**/*.log
+
+# Uploaded CSVs / generated reports
+Reports/
+WebApp/uploads/
+WebApp/reports/
+WebApp/generated/
+*.csv
+*.html
+
+# Local diagnostic endpoints
+WebApp/api/config-check.php
+WebApp/api/db-check.php
+WebApp/api/debug-log.php
+WebApp/api/mysqli-check.php
+WebApp/api/php-version.php
+WebApp/api/setup-check.php
+
+# Keep templates and documentation
+!WebApp/config.example.php
+!*.example.*
+!README.md
+
+# PowerShell generated files
+_qu_app_progress.log
+_manual_progress_test.log
+QuPOS_CurrentVersions*.html
+QuPOS_Builds.html
+QuPOS_Builds.json
+
+# OS / editor files
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# PHP / Composer
+vendor/
+composer.lock
+
+# .NET build output
+bin/
+obj/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Temporary files
+*.tmp
+*.bak
+*.old

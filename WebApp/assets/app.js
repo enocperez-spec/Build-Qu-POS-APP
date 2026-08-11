@@ -1,0 +1,941 @@
+const state = {
+    report: window.__QU_REPORT__ || null,
+    user: window.__QU_BOOTSTRAP__?.user || null,
+    needsSetup: false,
+    authStatusError: "",
+    pendingTwoFactor: null,
+    htmlUrl: null,
+    reports: [],
+    uploads: [],
+    selectedUploadId: "",
+    activeTab: "current",
+    currentPage: "dashboard",
+};
+
+const app = document.getElementById("app");
+
+function escapeHtml(value) {
+    return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+}
+
+function versionStatus(version, report) {
+    const stable = report?.summary?.currentStableVersion;
+    const current = report?.summary?.mostCurrentVersion;
+    if (!version || !stable || stable === "N/A") return "neutral";
+    if (version === stable) return "stable";
+    if (version === current) return "current";
+    if (/^\d+\.\d+\.\d+\.\d+$/.test(version)) {
+        return compareVersions(version, stable) < 0 ? "outdated" : "higher";
+    }
+    return "neutral";
+}
+
+function compareVersions(a, b) {
+    const left = String(a).split(/[.-]/).map(Number);
+    const right = String(b).split(/[.-]/).map(Number);
+    for (let i = 0; i < Math.max(left.length, right.length); i++) {
+        const diff = (left[i] || 0) - (right[i] || 0);
+        if (diff !== 0) return diff;
+    }
+    return 0;
+}
+
+function badge(version, report) {
+    return `<span class="badge ${versionStatus(version, report)}">${escapeHtml(version)}</span>`;
+}
+
+function canManageUsers() {
+    return state.user?.role === "admin";
+}
+
+function canGenerateReports() {
+    return ["admin", "tech"].includes(state.user?.role);
+}
+
+function roleLabel(role) {
+    if (role === "admin") return "Admin";
+    if (role === "tech") return "Tech";
+    return "Read-Only";
+}
+
+function navClass(page) {
+    return `nav-item nav-button${state.currentPage === page ? " active" : ""}`;
+}
+
+function shell(content, page = state.currentPage || "dashboard") {
+    state.currentPage = page;
+    const adminNav = canManageUsers() ? `<button class="${navClass("users")}" id="usersNavBtn">Users</button>` : "";
+    const uploadNav = canGenerateReports() ? `<button class="${navClass("upload")}" id="uploadNavBtn">Upload CSV</button>` : "";
+    return `
+        <div class="app-shell">
+            <aside class="sidebar">
+                <img class="brand-logo" src="assets/goto-foods-white-logo.png" alt="GoTo Foods">
+                <button class="${navClass("dashboard")}" id="dashboardNavBtn">Dashboard</button>
+                <button class="${navClass("reports")}" id="reportsNavBtn">View Reports</button>
+                ${uploadNav}
+                <button class="${navClass("alerts")}" id="alertsNavBtn">Alerts</button>
+                ${adminNav}
+            </aside>
+            <main class="main">${content}</main>
+        </div>`;
+}
+
+function header() {
+    return `
+        <div class="topbar">
+            <div class="title-row">
+                <div class="app-icon">&lt;/&gt;</div>
+                <div>
+                    <h1>QU POS Application Version Tools</h1>
+                    <p class="subtle">QU terminal Generate A Searchable Version Report.</p>
+                </div>
+            </div>
+            <div class="user-menu">
+                <div class="subtle">${escapeHtml(state.user?.displayName || "")}<br>${escapeHtml(roleLabel(state.user?.role))}<br>${new Date().toLocaleString()}</div>
+                ${state.user ? `<button class="btn logout-btn" id="logoutBtn" type="button">Log Out</button>` : ""}
+            </div>
+        </div>`;
+}
+
+function uploadPanel() {
+    return `
+        <section class="panel upload-panel">
+            <div class="drop-card">
+                <label for="currentCsv">CSV Upload <span class="subtle">(required)</span></label>
+                <input class="file-input" id="currentCsv" type="file" accept=".csv,text/csv">
+                <div id="currentFileName" class="file-name">No file selected</div>
+            </div>
+            <div class="actions">
+                <button class="btn primary" id="generateBtn">Upload CSV And Build Report</button>
+            </div>
+        </section>
+        <section class="panel progress-panel">
+            <div class="steps">
+                <div class="step" data-step="0"><strong>Loading CSV</strong><br><span>Waiting</span></div>
+                <div class="step" data-step="1"><strong>Building report</strong><br><span>Waiting</span></div>
+                <div class="step" data-step="2"><strong>Writing HTML</strong><br><span>Waiting</span></div>
+                <div class="step" data-step="3"><strong>Done</strong><br><span>Waiting</span></div>
+            </div>
+            <div id="statusMessage" class="status-message"></div>
+        </section>`;
+}
+
+function renderHome() {
+    state.currentPage = "dashboard";
+    state.report = null;
+    state.selectedUploadId = "";
+    app.innerHTML = shell(header() + dashboardUploadSelector() + `<div id="reportMount">${latestReportLoading()}</div>`, "dashboard");
+    bindShell();
+    bindDashboardUploadSelector();
+    if (state.report) bindReport();
+    loadDashboardUploads();
+    if (!state.report) loadLatestReport();
+}
+
+function dashboardUploadSelector() {
+    return `
+        <section class="panel dashboard-selector">
+            <div>
+                <h2>Past Data Uploads</h2>
+                <p class="subtle">Select a saved CSV upload to view that historical report. The selected upload is compared against the upload immediately before it.</p>
+            </div>
+            <div class="selector-actions">
+                <select class="text-input" id="dashboardUploadSelect">
+                    <option value="">Latest Generated Report</option>
+                </select>
+                <button class="btn" id="loadUploadReportBtn" type="button">Load Upload</button>
+            </div>
+        </section>`;
+}
+
+function bindDashboardUploadSelector() {
+    document.getElementById("loadUploadReportBtn")?.addEventListener("click", () => {
+        const id = document.getElementById("dashboardUploadSelect")?.value || "";
+        if (!id) {
+            state.report = null;
+            state.selectedUploadId = "";
+            loadLatestReport();
+            return;
+        }
+        loadReportFromUpload(id);
+    });
+    document.getElementById("dashboardUploadSelect")?.addEventListener("change", event => {
+        if (event.target.value) loadReportFromUpload(event.target.value);
+    });
+}
+
+function readOnlyPanel() {
+    return `
+        <section class="panel" style="padding:24px;">
+            <h2 style="margin-top:0;">Read-Only Access</h2>
+            <p class="subtle">You can open saved reports, search report data, and review alerts. Uploading CSV files and generating new reports requires a Tech or Admin role.</p>
+            <button class="btn primary" id="viewReportsBtn">View Reports</button>
+        </section>`;
+}
+
+function latestReportLoading() {
+    return `<section class="empty" style="margin-top:18px;">Loading latest generated report...</section>`;
+}
+
+function renderUploadPage() {
+    state.currentPage = "upload";
+    if (!canGenerateReports()) {
+        renderHome();
+        return;
+    }
+    app.innerHTML = shell(header() + uploadPanel() + `<section class="panel" style="padding:20px;margin-top:18px;"><h2>CSV Upload History</h2><div id="uploadHistory" class="report-list"><div class="empty">Loading upload history...</div></div></section><div id="reportMount">${state.report ? reportView(state.report) : emptyState()}</div>`, "upload");
+    bindShell();
+    bindUpload();
+    if (state.report) bindReport();
+    loadUploads();
+}
+
+async function boot() {
+    if (state.report) {
+        app.innerHTML = `<main class="report-only">${header()}${reportView(state.report)}</main>`;
+        bindShell();
+        bindReport();
+        return;
+    }
+
+    try {
+        const response = await fetch("api/auth.php?action=status");
+        const payload = await response.json();
+        if (!payload.ok) throw new Error(payload.error || "Unable to check login setup.");
+        state.user = payload.user;
+        state.needsSetup = !!payload.needsSetup;
+        state.authStatusError = "";
+    } catch (error) {
+        state.user = null;
+        state.authStatusError = error.message;
+    }
+
+    if (!state.user) {
+        renderAuth();
+        return;
+    }
+
+    renderHome();
+}
+
+function renderAuth() {
+    const setup = state.needsSetup;
+    app.innerHTML = `
+        <main class="auth-page">
+            <section class="auth-card panel">
+                <img class="brand-logo" src="assets/goto-foods-white-logo.png" alt="GoTo Foods">
+                <h1>${setup ? "Create First Admin" : "Sign In"}</h1>
+                <p class="subtle">${setup ? "Set up the first administrator account for this protected tool." : "Sign in to generate and view QU POS reports."}</p>
+                ${state.authStatusError ? `<div class="auth-error">Setup check failed: ${escapeHtml(state.authStatusError)}</div>` : ""}
+                <form id="authForm">
+                    <label>Email</label>
+                    <input class="text-input" id="authEmail" type="email" autocomplete="email" required>
+                    ${setup ? `<label>Display Name</label><input class="text-input" id="authName" type="text" autocomplete="name" required>` : ""}
+                    <label>Password</label>
+                    <input class="text-input" id="authPassword" type="password" autocomplete="${setup ? "new-password" : "current-password"}" required>
+                    <button class="btn primary" type="submit">${setup ? "Create Admin" : "Sign In"}</button>
+                </form>
+                <div id="authMessage" class="status-message"></div>
+            </section>
+        </main>`;
+    document.getElementById("authForm").addEventListener("submit", submitAuth);
+}
+
+function renderTwoFactor(setup = null) {
+    const isSetup = !!setup;
+    app.innerHTML = `
+        <main class="auth-page">
+            <section class="auth-card panel">
+                <img class="brand-logo" src="assets/goto-foods-white-logo.png" alt="GoTo Foods">
+                <h1>${isSetup ? "Set Up Two-Factor Authentication" : "Two-Factor Authentication"}</h1>
+                <p class="subtle">${isSetup ? "Add this account to Microsoft Authenticator, Google Authenticator, Authy, or another authenticator app, then enter the 6-digit code." : "Enter the 6-digit code from your authenticator app."}</p>
+                ${isSetup ? `
+                    <div class="qr-card">
+                        <div id="twoFactorQr" class="qr-code" aria-label="Two-factor setup QR code"></div>
+                        <div id="qrFallback" class="subtle"></div>
+                    </div>
+                    <div class="two-factor-box">
+                        <span class="label">Setup Key</span>
+                        <code>${escapeHtml(setup.secret)}</code>
+                    </div>
+                    <p class="subtle">Scan the QR code with your authenticator app, or enter the setup key manually.</p>
+                ` : ""}
+                <form id="twoFactorForm">
+                    <label>6-digit code</label>
+                    <input class="text-input code-input" id="twoFactorCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required>
+                    <button class="btn primary" type="submit">${isSetup ? "Finish Setup" : "Verify Code"}</button>
+                    <button class="btn" id="backToLoginBtn" type="button">Back To Sign In</button>
+                </form>
+                <div id="twoFactorMessage" class="status-message"></div>
+            </section>
+        </main>`;
+    document.getElementById("twoFactorForm").addEventListener("submit", submitTwoFactor);
+    document.getElementById("backToLoginBtn").addEventListener("click", async () => {
+        await fetch("api/auth.php?action=logout", { method: "POST" });
+        state.pendingTwoFactor = null;
+        renderAuth();
+    });
+    if (isSetup) renderTwoFactorQr(setup.otpauthUri);
+    document.getElementById("twoFactorCode").focus();
+}
+
+function renderTwoFactorQr(otpauthUri) {
+    const container = document.getElementById("twoFactorQr");
+    const fallback = document.getElementById("qrFallback");
+    if (!container || !fallback) return;
+    if (typeof window.QRCode !== "function") {
+        fallback.textContent = "QR code library did not load. Use the setup key below.";
+        return;
+    }
+    container.innerHTML = "";
+    try {
+        new window.QRCode(container, {
+            text: otpauthUri,
+            width: 220,
+            height: 220,
+            colorDark: "#07101f",
+            colorLight: "#ffffff",
+            correctLevel: window.QRCode.CorrectLevel.M,
+        });
+        fallback.textContent = "Scan this QR code to add the account.";
+    } catch (error) {
+        fallback.textContent = "QR code could not be generated. Use the setup key below.";
+    }
+}
+
+async function submitAuth(event) {
+    event.preventDefault();
+    const message = document.getElementById("authMessage");
+    const action = state.needsSetup ? "setup" : "login";
+    const body = {
+        email: document.getElementById("authEmail").value,
+        password: document.getElementById("authPassword").value,
+        displayName: document.getElementById("authName")?.value || "",
+    };
+    try {
+        const response = await fetch(`api/auth.php?action=${action}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+        });
+        const payload = await response.json();
+        if (!payload.ok) throw new Error(payload.error || "Authentication failed.");
+        if (payload.requiresTwoFactorSetup) {
+            state.pendingTwoFactor = { setup: payload.setup };
+            renderTwoFactor(payload.setup);
+            return;
+        }
+        if (payload.requiresTwoFactor) {
+            state.pendingTwoFactor = {};
+            renderTwoFactor();
+            return;
+        }
+        state.user = payload.user;
+        state.needsSetup = false;
+        renderHome();
+    } catch (error) {
+        message.textContent = error.message;
+    }
+}
+
+async function submitTwoFactor(event) {
+    event.preventDefault();
+    const message = document.getElementById("twoFactorMessage");
+    const action = state.pendingTwoFactor?.setup ? "confirm-2fa-setup" : "verify-2fa";
+    try {
+        const response = await fetch(`api/auth.php?action=${action}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ code: document.getElementById("twoFactorCode").value }),
+        });
+        const payload = await response.json();
+        if (!payload.ok) throw new Error(payload.error || "Two-factor verification failed.");
+        state.user = payload.user;
+        state.needsSetup = false;
+        state.pendingTwoFactor = null;
+        renderHome();
+    } catch (error) {
+        message.textContent = error.message;
+    }
+}
+
+function bindShell() {
+    document.getElementById("logoutBtn")?.addEventListener("click", logout);
+    document.getElementById("reportsNavBtn")?.addEventListener("click", loadReports);
+    document.getElementById("dashboardNavBtn")?.addEventListener("click", renderHome);
+    document.getElementById("uploadNavBtn")?.addEventListener("click", renderUploadPage);
+    document.getElementById("alertsNavBtn")?.addEventListener("click", renderAlertsPage);
+    document.getElementById("usersNavBtn")?.addEventListener("click", renderUsers);
+}
+
+async function logout() {
+    await fetch("api/auth.php?action=logout", { method: "POST" });
+    state.user = null;
+    state.report = null;
+    renderAuth();
+}
+
+function emptyState() {
+    if (!canGenerateReports()) {
+        return `<section class="empty" style="margin-top:18px;">Use View Reports to open previously generated QU POS reports.</section>`;
+    }
+    return `<section class="empty" style="margin-top:18px;">Upload a CSV to save it to history and build the latest report.</section>`;
+}
+
+function bindUpload() {
+    const current = document.getElementById("currentCsv");
+    current?.addEventListener("change", () => document.getElementById("currentFileName").textContent = current.files[0]?.name || "No file selected");
+    document.getElementById("generateBtn")?.addEventListener("click", generateReport);
+}
+
+function setStep(index, label) {
+    document.querySelectorAll(".step").forEach((step, i) => {
+        step.classList.toggle("done", i < index);
+        step.classList.toggle("active", i === index);
+        step.querySelector("span").textContent = i < index ? "Completed" : (i === index ? "In progress" : "Waiting");
+    });
+    document.getElementById("statusMessage").textContent = label;
+}
+
+async function generateReport() {
+    const current = document.getElementById("currentCsv");
+    if (!current.files[0]) {
+        document.getElementById("statusMessage").textContent = "Choose a CSV file first.";
+        return;
+    }
+
+    const form = new FormData();
+    form.append("currentCsv", current.files[0]);
+
+    const button = document.getElementById("generateBtn");
+    button.disabled = true;
+    try {
+        setStep(0, "Loading CSV");
+        await pause(180);
+        setStep(1, "Building report");
+        const response = await fetch("api/generate.php", { method: "POST", body: form });
+        const payload = await response.json();
+        if (!payload.ok) throw new Error(payload.error || "Report generation failed.");
+        setStep(2, "Writing HTML");
+        await pause(180);
+        state.report = payload.report;
+        state.htmlUrl = payload.htmlUrl;
+        setStep(4, "Done");
+        document.getElementById("reportMount").innerHTML = reportView(state.report);
+        bindReport();
+        await loadUploads();
+    } catch (error) {
+        document.getElementById("statusMessage").textContent = error.message;
+    } finally {
+        button.disabled = false;
+    }
+}
+
+async function loadLatestReport() {
+    const mount = document.getElementById("reportMount");
+    try {
+        const response = await fetch("api/reports.php?action=latest");
+        const payload = await response.json();
+        if (!payload.ok) throw new Error(payload.error || "Could not load latest report.");
+        if (!payload.report) {
+            mount.innerHTML = `<section class="empty" style="margin-top:18px;">No generated reports yet. Tech or Admin users can upload a CSV from the Upload CSV page.</section>`;
+            return;
+        }
+        state.report = payload.report;
+        state.htmlUrl = payload.metadata?.url || null;
+        mount.innerHTML = reportView(state.report);
+        bindReport();
+    } catch (error) {
+        mount.innerHTML = `<section class="empty" style="margin-top:18px;">${escapeHtml(error.message)}</section>`;
+    }
+}
+
+async function loadDashboardUploads() {
+    const select = document.getElementById("dashboardUploadSelect");
+    if (!select) return;
+    try {
+        const response = await fetch("api/uploads.php?action=list");
+        const payload = await response.json();
+        if (!payload.ok) throw new Error(payload.error || "Could not load upload history.");
+        const currentValue = select.value;
+        select.innerHTML = `<option value="">Latest Generated Report</option>` + payload.uploads.map((upload, index) => {
+            const label = `${index === 0 ? "Current CSV" : (index === 1 ? "Previous CSV" : "Historical CSV")} - ${new Date(upload.uploadedAt).toLocaleString()} - ${upload.filename}`;
+            return `<option value="${escapeHtml(upload.id)}">${escapeHtml(label)}</option>`;
+        }).join("");
+        select.value = state.selectedUploadId || currentValue;
+    } catch (error) {
+        select.innerHTML = `<option value="">${escapeHtml(error.message)}</option>`;
+    }
+}
+
+async function loadReportFromUpload(id) {
+    const mount = document.getElementById("reportMount");
+    mount.innerHTML = `<section class="empty" style="margin-top:18px;">Loading selected upload report...</section>`;
+    try {
+        const response = await fetch(`api/reports.php?action=from-upload&id=${encodeURIComponent(id)}`);
+        const payload = await response.json();
+        if (!payload.ok) throw new Error(payload.error || "Could not load selected upload report.");
+        state.report = payload.report;
+        state.selectedUploadId = String(id);
+        state.htmlUrl = null;
+        mount.innerHTML = reportView(state.report);
+        bindReport();
+    } catch (error) {
+        mount.innerHTML = `<section class="empty" style="margin-top:18px;">${escapeHtml(error.message)}</section>`;
+    }
+}
+
+async function loadUploads() {
+    const list = document.getElementById("uploadHistory");
+    if (!list) return;
+    const response = await fetch("api/uploads.php?action=list");
+    const payload = await response.json();
+    if (!payload.ok) {
+        list.innerHTML = `<div class="empty">${escapeHtml(payload.error)}</div>`;
+        return;
+    }
+    state.uploads = payload.uploads;
+    list.innerHTML = state.uploads.length ? state.uploads.map((upload, index) => `
+        <div class="report-item">
+            <div>
+                <strong>${escapeHtml(upload.filename)}</strong><br>
+                <span class="subtle">${index === 0 ? "Current CSV" : (index === 1 ? "Previous CSV" : "Historical CSV")} • ${escapeHtml(new Date(upload.uploadedAt).toLocaleString())} • ${escapeHtml(upload.rowCount)} rows</span>
+            </div>
+            ${canManageUsers() ? `<button class="btn danger" data-delete-upload="${upload.id}">Delete</button>` : ""}
+        </div>`).join("") : `<div class="empty">No CSV uploads have been saved yet.</div>`;
+    list.querySelectorAll("button[data-delete-upload]").forEach(button => {
+        button.addEventListener("click", () => deleteUpload(button.dataset.deleteUpload));
+    });
+}
+
+async function deleteUpload(id) {
+    if (!confirm("Delete this historical CSV upload? This cannot be undone.")) return;
+    const response = await fetch("api/uploads.php?action=delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+    });
+    const payload = await response.json();
+    if (!payload.ok) alert(payload.error || "Could not delete CSV upload.");
+    await loadUploads();
+}
+
+function pause(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function loadReports() {
+    state.currentPage = "reports";
+    app.innerHTML = shell(header() + `<div id="reportMount"></div>`, "reports");
+    bindShell();
+    const mount = document.getElementById("reportMount");
+    mount.innerHTML = `<section class="panel" style="padding:20px;margin-top:18px;"><h2>Saved Reports</h2><div class="empty">Loading reports...</div></section>`;
+    const response = await fetch("api/reports.php");
+    const payload = await response.json();
+    if (!payload.ok) {
+        mount.innerHTML = `<section class="empty" style="margin-top:18px;">${escapeHtml(payload.error)}</section>`;
+        return;
+    }
+    state.reports = payload.reports;
+    mount.innerHTML = `
+        <section class="panel" style="padding:20px;margin-top:18px;">
+            <h2>Saved Reports</h2>
+            <div class="report-list">
+                ${state.reports.length ? state.reports.map(report => `
+                    <div class="report-item">
+                        <div><strong>${escapeHtml(report.name)}</strong><br><span class="subtle">${escapeHtml(report.date)} • ${escapeHtml(report.sourceCsv || "")} • Stable ${escapeHtml(report.currentStableVersion || "N/A")}</span></div>
+                        <a class="btn" href="${escapeHtml(report.url)}" target="_blank">Open</a>
+                    </div>`).join("") : `<div class="empty">No reports have been generated yet.</div>`}
+            </div>
+        </section>`;
+}
+
+async function renderAlertsPage() {
+    state.currentPage = "alerts";
+    state.activeTab = "alerts";
+    app.innerHTML = shell(header() + `<div id="reportMount"><section class="empty" style="margin-top:18px;">Loading alerts...</section></div>`, "alerts");
+    bindShell();
+    await loadLatestReport();
+    state.activeTab = "alerts";
+    document.querySelectorAll(".tab-btn").forEach(button => button.classList.toggle("active", button.dataset.tab === "alerts"));
+    const tabContentElement = document.getElementById("tabContent");
+    if (tabContentElement && state.report) {
+        tabContentElement.innerHTML = tabContent(state.report, "alerts");
+    }
+}
+
+async function renderUsers() {
+    state.currentPage = "users";
+    const mountHtml = shell(header() + `
+        <section class="panel" style="padding:20px;">
+            <h2>User Management</h2>
+            <form id="createUserForm" class="user-form">
+                <input class="text-input" id="newUserName" placeholder="Display name" required>
+                <input class="text-input" id="newUserEmail" type="email" placeholder="Email" required>
+                <input class="text-input" id="newUserPassword" type="password" placeholder="Temporary password" required>
+                <select class="text-input" id="newUserRole">
+                    <option value="tech">Tech</option>
+                    <option value="read_only">Read-Only</option>
+                    <option value="admin">Admin</option>
+                </select>
+                <button class="btn primary" type="submit">Add User</button>
+            </form>
+            <div id="usersMessage" class="status-message"></div>
+            <div id="usersList" class="report-list"></div>
+        </section>`, "users");
+    app.innerHTML = mountHtml;
+    bindShell();
+    document.getElementById("createUserForm").addEventListener("submit", createUser);
+    await loadUsers();
+}
+
+async function loadUsers() {
+    const list = document.getElementById("usersList");
+    const response = await fetch("api/users.php?action=list");
+    const payload = await response.json();
+    if (!payload.ok) {
+        list.innerHTML = `<div class="empty">${escapeHtml(payload.error)}</div>`;
+        return;
+    }
+    list.innerHTML = payload.users.map(user => `
+        <div class="report-item">
+            <div>
+                <strong>${escapeHtml(user.displayName)}</strong><br>
+                <span class="subtle">${escapeHtml(user.email)} • ${escapeHtml(user.roleLabel || roleLabel(user.role))} • ${user.isActive ? "Active" : "Disabled"} • 2FA ${user.twoFactorEnabled ? "On" : "Not Set Up"}</span>
+            </div>
+            <div class="row-actions">
+                <select class="text-input role-select" data-role-user-id="${user.id}">
+                    <option value="tech" ${user.role === "tech" ? "selected" : ""}>Tech</option>
+                    <option value="read_only" ${user.role === "read_only" ? "selected" : ""}>Read-Only</option>
+                    <option value="admin" ${user.role === "admin" ? "selected" : ""}>Admin</option>
+                </select>
+                <button class="btn" data-user-id="${user.id}" data-active="${user.isActive ? "0" : "1"}">${user.isActive ? "Disable" : "Enable"}</button>
+                <button class="btn warning" data-reset-2fa="${user.id}" ${user.twoFactorEnabled ? "" : "disabled"}>Reset 2FA</button>
+                <button class="btn danger" data-delete-user="${user.id}">Delete</button>
+            </div>
+        </div>`).join("");
+    list.querySelectorAll("select[data-role-user-id]").forEach(select => {
+        select.addEventListener("change", () => setUserRole(select.dataset.roleUserId, select.value));
+    });
+    list.querySelectorAll("button[data-user-id]").forEach(button => {
+        button.addEventListener("click", () => setUserActive(button.dataset.userId, button.dataset.active === "1"));
+    });
+    list.querySelectorAll("button[data-reset-2fa]").forEach(button => {
+        button.addEventListener("click", () => resetUserTwoFactor(button.dataset.reset2fa));
+    });
+    list.querySelectorAll("button[data-delete-user]").forEach(button => {
+        button.addEventListener("click", () => deleteUser(button.dataset.deleteUser));
+    });
+}
+
+async function createUser(event) {
+    event.preventDefault();
+    const message = document.getElementById("usersMessage");
+    const button = event.submitter || event.target.querySelector("button[type='submit']");
+    message.textContent = "Adding user...";
+    message.className = "status-message";
+    if (button) button.disabled = true;
+    try {
+        const response = await fetch("api/users.php?action=create", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                displayName: document.getElementById("newUserName").value,
+                email: document.getElementById("newUserEmail").value,
+                password: document.getElementById("newUserPassword").value,
+                role: document.getElementById("newUserRole").value,
+            }),
+        });
+        const payload = await parseJsonResponse(response);
+        if (!payload.ok) throw new Error(payload.error || "Could not create user.");
+        message.textContent = "User created.";
+        message.className = "status-message success-message";
+        event.target.reset();
+        await loadUsers();
+    } catch (error) {
+        message.textContent = error.message;
+        message.className = "status-message error-message";
+    } finally {
+        if (button) button.disabled = false;
+    }
+}
+
+async function parseJsonResponse(response) {
+    const text = await response.text();
+    let payload = {};
+    try {
+        payload = text ? JSON.parse(text) : {};
+    } catch (error) {
+        throw new Error(text || `Request failed with status ${response.status}.`);
+    }
+    if (!response.ok && payload.ok !== false) {
+        payload.ok = false;
+        payload.error = payload.error || `Request failed with status ${response.status}.`;
+    }
+    return payload;
+}
+
+async function setUserActive(id, isActive) {
+    const response = await fetch("api/users.php?action=set-active", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, isActive }),
+    });
+    const payload = await response.json();
+    if (!payload.ok) alert(payload.error || "Could not update user status.");
+    await loadUsers();
+}
+
+async function setUserRole(id, role) {
+    const response = await fetch("api/users.php?action=set-role", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, role }),
+    });
+    const payload = await response.json();
+    if (!payload.ok) alert(payload.error || "Could not update role.");
+    await loadUsers();
+}
+
+async function resetUserTwoFactor(id) {
+    if (!confirm("Reset 2FA for this user? They will need to set it up again at next sign in.")) return;
+    const response = await fetch("api/users.php?action=reset-2fa", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+    });
+    const payload = await response.json();
+    if (!payload.ok) alert(payload.error || "Could not reset 2FA.");
+    await loadUsers();
+}
+
+async function deleteUser(id) {
+    if (!confirm("Delete this user? This cannot be undone.")) return;
+    const response = await fetch("api/users.php?action=delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+    });
+    const payload = await response.json();
+    if (!payload.ok) alert(payload.error || "Could not delete user.");
+    await loadUsers();
+}
+
+function reportView(report) {
+    const comparisonTab = report.comparison ? `<button class="tab-btn" data-tab="comparison">Comparison</button>` : "";
+    return `
+        <section class="report">
+            ${summaryCards(report)}
+            <div class="tabs">
+                <button class="tab-btn active" data-tab="current">Current Versions</button>
+                <button class="tab-btn" data-tab="stores">Stores Version Report</button>
+                <button class="tab-btn" data-tab="alerts">Alerts</button>
+                ${comparisonTab}
+            </div>
+            <div class="toolbar">
+                <input id="reportSearch" class="search" type="search" placeholder="Search brands, stores, versions, terminals, and alerts">
+                <span class="subtle">Generated ${escapeHtml(report.generatedOn)} from ${escapeHtml(report.sourceCsv)}</span>
+            </div>
+            <div id="tabContent">${tabContent(report, state.activeTab)}</div>
+        </section>`;
+}
+
+function summaryCards(report) {
+    const s = report.summary;
+    return `
+        <div class="summary-grid">
+            ${metricCard("POS App Terminals", s.posAppTerminals, "Total terminals", "terminals")}
+            ${metricCard("Current Stable Version", s.currentStableVersion, `${s.currentStableVersionCount} terminals`, "stable")}
+            ${metricCard("Out-Of-Date Stores", s.outOfDateStores, "Stores below stable", "outdated")}
+            ${metricCard("Kiosk Versions", s.kioskVersions, "Active versions", "kiosk")}
+            ${metricCard("QuBox Versions", s.quboxVersions, "Active versions", "qubox")}
+            ${metricCard("Other Versions", s.otherVersions, "Active versions", "other")}
+        </div>`;
+}
+
+function card(label, value, meta = "") {
+    return `<div class="card"><span class="label">${escapeHtml(label)}</span><span class="value">${escapeHtml(value)}</span>${meta ? `<span class="subtle">${escapeHtml(meta)}</span>` : ""}</div>`;
+}
+
+function metricCard(label, value, meta, type) {
+    return `
+        <div class="card metric-card metric-${escapeHtml(type)}">
+            <div class="metric-icon" aria-hidden="true">${metricIcon(type)}</div>
+            <div class="metric-copy">
+                <span class="label">${escapeHtml(label)}</span>
+                <span class="value">${escapeHtml(value)}</span>
+                ${meta ? `<span class="metric-meta">${escapeHtml(meta)}</span>` : ""}
+            </div>
+        </div>`;
+}
+
+function metricIcon(type) {
+    const icons = {
+        terminals: `<svg viewBox="0 0 48 48"><rect x="8" y="8" width="32" height="24" rx="2"></rect><path d="M14 38h20M19 32v6M29 32v6"></path></svg>`,
+        stable: `<svg viewBox="0 0 48 48"><path d="M24 5 39 11v12c0 10-6.5 16.5-15 20C15.5 39.5 9 33 9 23V11l15-6Z"></path><path d="m17 24 5 5 10-12"></path></svg>`,
+        outdated: `<svg viewBox="0 0 48 48"><path d="M24 6 44 40H4L24 6Z"></path><path d="M24 17v11M24 35h.01"></path></svg>`,
+        kiosk: `<svg viewBox="0 0 48 48"><rect x="15" y="5" width="18" height="34" rx="2"></rect><path d="M19 34h10M21 43h6"></path></svg>`,
+        qubox: `<svg viewBox="0 0 48 48"><path d="m24 5 16 9v20l-16 9-16-9V14l16-9Z"></path><path d="M8 14l16 9 16-9M24 23v20"></path></svg>`,
+        other: `<svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="16"></circle><path d="M16 24h16M24 16v16"></path></svg>`,
+    };
+    return icons[type] || icons.other;
+}
+
+function tabContent(report, tab) {
+    if (tab === "stores") return storesTab(report);
+    if (tab === "alerts") return alertsTab(report);
+    if (tab === "comparison") return comparisonTab(report);
+    return currentTab(report);
+}
+
+function currentTab(report) {
+    return `
+        ${versionSection("Downloadable QU POS Versions", report.downloadableVersions, report)}
+        ${outdatedSection(report)}
+        ${versionSection("Downloadable Kiosk Versions", report.kioskVersions, report)}
+        ${versionSection("QuBox Versions", report.quboxVersions, report)}
+        ${versionSection("Other Terminal Versions", report.otherVersions, report)}`;
+}
+
+function versionSection(title, versions, report) {
+    if (!versions?.length) return "";
+    return `
+        <h2>${escapeHtml(title)}</h2>
+        ${simpleTable(["Version", "Release Train", "Terminals", "Stores", "Types", "Download"], versions.map(item => [
+            badge(item.version, report),
+            item.releaseTrain || "",
+            item.terminalCount,
+            item.storeCount,
+            item.terminalTypes,
+            item.url ? `<a href="${escapeHtml(item.url)}" target="_blank">Download</a>` : ""
+        ]))}
+        ${versions.map(item => versionDetail(item, report)).join("")}`;
+}
+
+function versionDetail(item, report) {
+    return `
+        <details class="version-detail">
+            <summary>${badge(item.version, report)}<span>${escapeHtml(item.terminalCount)} terminals across ${escapeHtml(item.storeCount)} stores</span></summary>
+            <div class="detail-body">
+                ${item.url ? `<p><a href="${escapeHtml(item.url)}" target="_blank">${escapeHtml(item.url)}</a></p>` : ""}
+                ${simpleTable(["Store ID", "Store Name", "Terminals", "Types", "Latest Seen"], (item.storeRows || []).map(store => [
+                    store.storeId,
+                    store.storeName,
+                    store.terminalCount,
+                    store.terminalTypes,
+                    store.latestSeen
+                ]))}
+            </div>
+        </details>`;
+}
+
+function outdatedSection(report) {
+    if (!report.outOfDateVersionSummary?.length) return `<h2>Out-Of-Date Stores</h2><div class="empty">All POS app terminals are on or above the current stable version.</div>`;
+    return `
+        <h2>Out-Of-Date Stores</h2>
+        <p class="subtle">Current stable version is ${escapeHtml(report.summary.currentStableVersion)}. Any POS app version below that is counted as out-of-date.</p>
+        ${simpleTable(["Version", "Out-Of-Date Terminals", "Stores"], report.outOfDateVersionSummary.map(item => [
+            badge(item.version, report),
+            item.terminalCount,
+            item.storeCount
+        ]))}`;
+}
+
+function storesTab(report) {
+    return simpleTable(["Store ID", "Store Name", "Versions Detected", "Most Common Version", "Out-Of-Date Terminals", "Total POS Terminals", "Latest Seen"], report.stores.map(store => [
+        store.storeId,
+        store.storeName,
+        (store.versionsDetectedList || []).map(version => badge(version, report)).join(""),
+        badge(store.mostCommonVersion, report),
+        store.outOfDateTerminalCount,
+        store.totalPosTerminals,
+        store.latestSeen
+    ]));
+}
+
+function alertsTab(report) {
+    const alerts = report.alerts || {};
+    return `
+        <h2>Mixed-Version Stores</h2>
+        ${storesTab({ ...report, stores: alerts.mixedVersionStores || [] })}
+        <h2>Stale Terminals</h2>
+        ${simpleTable(["Store ID", "Store Name", "Terminal ID", "Computer Name", "Type", "Version", "Last Seen", "Age Days"], (alerts.staleTerminals || []).map(item => [
+            item.storeId, item.storeName, item.terminalId, item.computerName, item.terminalType, badge(item.currentVersion, report), item.lastSeen, item.ageDays
+        ]))}
+        <h2>Far Behind Stores</h2>
+        ${storesTab({ ...report, stores: alerts.farBehindStores || [] })}`;
+}
+
+function comparisonTab(report) {
+    const comparison = report.comparison;
+    if (!comparison) return `<div class="empty">Upload a previous CSV to enable comparison.</div>`;
+    return `
+        <div class="summary-grid">
+            ${card("Changed Terminals", comparison.changedTerminalCount)}
+            ${card("New Terminals", comparison.newTerminalCount)}
+            ${card("Removed Terminals", comparison.removedTerminalCount)}
+        </div>
+        <h2>Changed Terminals</h2>
+        ${simpleTable(["Store ID", "Store Name", "Terminal ID", "Computer Name", "Type", "Previous Version", "Current Version", "Change"], comparison.changedTerminals.map(item => [
+            item.storeId, item.storeName, item.terminalId, item.computerName, item.terminalType, item.previousVersion, badge(item.currentVersion, report), item.changeType
+        ]))}`;
+}
+
+function simpleTable(headers, rows) {
+    if (!rows?.length) return `<div class="empty">No rows to show.</div>`;
+    return `
+        <div class="table-wrap">
+            <table>
+                <thead><tr>${headers.map(header => `<th>${escapeHtml(header)}</th>`).join("")}</tr></thead>
+                <tbody>
+                    ${rows.map(row => `<tr>${row.map(cell => `<td>${cell ?? ""}</td>`).join("")}</tr>`).join("")}
+                </tbody>
+            </table>
+        </div>`;
+}
+
+function bindReport() {
+    document.querySelectorAll(".tab-btn").forEach(button => {
+        button.addEventListener("click", () => {
+            state.activeTab = button.dataset.tab;
+            document.querySelectorAll(".tab-btn").forEach(item => item.classList.toggle("active", item === button));
+            document.getElementById("tabContent").innerHTML = tabContent(state.report, state.activeTab);
+            filterRows(document.getElementById("reportSearch")?.value || "");
+        });
+    });
+    document.getElementById("reportSearch")?.addEventListener("input", event => filterRows(event.target.value));
+    document.querySelectorAll("th").forEach((th, index) => th.addEventListener("click", () => sortTable(th.closest("table"), index)));
+}
+
+function filterRows(query) {
+    const needle = query.trim().toLowerCase();
+    document.querySelectorAll("#tabContent tbody tr").forEach(row => {
+        row.style.display = !needle || row.textContent.toLowerCase().includes(needle) ? "" : "none";
+    });
+}
+
+function sortTable(table, columnIndex) {
+    const tbody = table?.querySelector("tbody");
+    if (!tbody) return;
+    const rows = [...tbody.querySelectorAll("tr")];
+    const direction = table.dataset.sortDirection === "asc" ? "desc" : "asc";
+    table.dataset.sortDirection = direction;
+    rows.sort((a, b) => {
+        const left = a.children[columnIndex]?.textContent.trim() || "";
+        const right = b.children[columnIndex]?.textContent.trim() || "";
+        const leftNumber = Number(left.replaceAll(",", ""));
+        const rightNumber = Number(right.replaceAll(",", ""));
+        const result = Number.isFinite(leftNumber) && Number.isFinite(rightNumber)
+            ? leftNumber - rightNumber
+            : left.localeCompare(right, undefined, { numeric: true, sensitivity: "base" });
+        return direction === "asc" ? result : -result;
+    });
+    tbody.append(...rows);
+}
+
+boot();
