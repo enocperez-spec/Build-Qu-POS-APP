@@ -198,6 +198,14 @@ const FEATURE_RELEASES = [
         type: "Security",
         status: "Released",
     },
+    {
+        version: "v003.04",
+        releasedAt: "2026-08-11 18:11:39 -04:00",
+        title: "Footer-Only Release Notes Access",
+        description: "Removed Release Notes from the left navigation while keeping release notes available through the clickable footer version.",
+        type: "Improvement",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
@@ -278,7 +286,6 @@ function shell(content, page = state.currentPage || "dashboard") {
                 <button class="${navClass("reports")}" id="reportsNavBtn">View Reports</button>
                 ${uploadNav}
                 <button class="${navClass("alerts")}" id="alertsNavBtn">Alerts</button>
-                <button class="${navClass("releaseNotes")}" id="releaseNotesNavBtn">Release Notes</button>
                 ${adminNav}
             </aside>
             <main class="main">${content}${footer()}</main>
@@ -586,7 +593,6 @@ function bindShell() {
     document.getElementById("dashboardNavBtn")?.addEventListener("click", renderHome);
     document.getElementById("uploadNavBtn")?.addEventListener("click", renderUploadPage);
     document.getElementById("alertsNavBtn")?.addEventListener("click", renderAlertsPage);
-    document.getElementById("releaseNotesNavBtn")?.addEventListener("click", () => renderReleaseNotes(state.currentPage || "dashboard"));
     document.getElementById("usersNavBtn")?.addEventListener("click", renderUsers);
     bindFooter();
 }
@@ -811,7 +817,7 @@ function renderReleaseNotes(returnPage = state.currentPage || "dashboard") {
             </div>
             <button class="btn back-btn" id="backToApplicationBtn" type="button">Back to Application</button>
             <div class="release-rules">
-                Version sequence: v001.01 through v001.09, then v002.00 through v002.09, then v003.00, v003.01, v003.02, v003.03, and so on.
+                Version sequence: v001.01 through v001.09, then v002.00 through v002.09, then v003.00, v003.01, v003.02, v003.03, v003.04, and so on.
             </div>
             <div class="release-list">
                 ${FEATURE_RELEASES.slice().reverse().map(release => `
