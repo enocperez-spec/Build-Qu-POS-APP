@@ -1,10 +1,10 @@
 # Release Notes
 
-Current application version: `v004.01`
+Current application version: `v004.02`
 
 Version sequence: `v001.01` through `v001.09`, then `v002.00`, followed by
 `v002.00` through `v002.09`, then `v003.00` through `v003.09`, then `v004.00`,
-`v004.01`, and so on.
+`v004.01`, `v004.02`, and so on.
 
 Going forward, every approved and completed feature, improvement, bug fix, or
 security change should add a new entry here and update the current application
@@ -14,6 +14,7 @@ Newest releases are listed first.
 
 | Version | Release Date And Time | Type | Title | Description | Status |
 | --- | --- | --- | --- | --- | --- |
+| v004.02 | 2026-08-11 20:35:00 -04:00 | Improvement | Polished Header User Profile Card | Updated the top-right dashboard user area with a polished profile card showing initials, username, role, dashboard last updated time, and the Log Out action. | Released |
 | v004.01 | 2026-08-11 20:15:00 -04:00 | Improvement | Clickable Dashboard Metric Cards | Made dashboard metric cards clickable so users can jump directly to filtered out-of-date stores, POS, Kiosk, QuBox, and other version details. | Released |
 | v004.00 | 2026-08-11 19:55:00 -04:00 | Improvement | Dashboard Trend Indicators | Added trend labels to dashboard metric cards showing whether out-of-date stores and stable-version usage improved compared with the previous upload. | Released |
 | v003.09 | 2026-08-11 19:35:00 -04:00 | Improvement | Dashboard Data Health Summary | Added dashboard health cards for latest terminal sync, latest store sync, store data volume, and QU EI automation status so users can quickly confirm data freshness. | Released |

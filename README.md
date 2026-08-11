@@ -35,10 +35,12 @@ historical comparisons.
   usage compared with the previous upload.
 - Lets users click dashboard metric cards to jump directly into matching report
   details and filtered out-of-date stores.
+- Shows a polished top-right user profile card with role, dashboard last
+  updated time, and logout action.
 
 ## Release Notes
 
-The current application version is `v004.01`.
+The current application version is `v004.02`.
 
 Release history is tracked in [docs/FEATURE_RELEASES.md](docs/FEATURE_RELEASES.md).
 Every completed request receives the next version number and remains available

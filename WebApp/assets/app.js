@@ -264,6 +264,14 @@ const FEATURE_RELEASES = [
         type: "Improvement",
         status: "Released",
     },
+    {
+        version: "v004.02",
+        releasedAt: "2026-08-11 20:35:00 -04:00",
+        title: "Polished Header User Profile Card",
+        description: "Updated the top-right dashboard user area with a polished profile card showing initials, username, role, dashboard last updated time, and the Log Out action.",
+        type: "Improvement",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
@@ -382,16 +390,29 @@ function header() {
                     <p class="subtle">QU terminal Generate A Searchable Version Report.</p>
                 </div>
             </div>
-            <div class="user-menu">
-                <div class="subtle">
-                    ${escapeHtml(state.user?.displayName || "")}<br>
-                    ${escapeHtml(roleLabel(state.user?.role))}<br>
-                    Dashboard Last Updated<br>
-                    <span id="dashboardLastUpdated">${escapeHtml(dashboardLastUpdatedLabel())}</span>
+            <div class="user-profile-card">
+                <div class="user-avatar" aria-hidden="true">${escapeHtml(userInitials(state.user?.displayName || ""))}</div>
+                <div class="user-profile-copy">
+                    <div class="user-name-line">
+                        <span class="user-name">${escapeHtml(state.user?.displayName || "")}</span>
+                        <span class="role-badge">${escapeHtml(roleLabel(state.user?.role))}</span>
+                    </div>
+                    <div class="dashboard-updated-line">
+                        Dashboard Last Updated: <span id="dashboardLastUpdated">${escapeHtml(dashboardLastUpdatedLabel())}</span>
+                    </div>
                 </div>
                 ${state.user ? `<button class="btn logout-btn" id="logoutBtn" type="button">Log Out</button>` : ""}
             </div>
         </div>`;
+}
+
+function userInitials(name) {
+    const parts = String(name || "")
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean);
+    if (!parts.length) return "QU";
+    return parts.slice(0, 2).map(part => part[0]).join("").toUpperCase();
 }
 
 function uploadPanel() {
@@ -934,7 +955,7 @@ function renderReleaseNotes(returnPage = state.currentPage || "dashboard") {
             </div>
             <button class="btn back-btn" id="backToApplicationBtn" type="button">Back to Application</button>
             <div class="release-rules">
-                Version sequence: v001.01 through v001.09, then v002.00 through v002.09, then v003.00 through v003.09, then v004.00, v004.01, and so on.
+                Version sequence: v001.01 through v001.09, then v002.00 through v002.09, then v003.00 through v003.09, then v004.00, v004.01, v004.02, and so on.
             </div>
             <div class="release-list">
                 ${FEATURE_RELEASES.slice().reverse().map(release => `
