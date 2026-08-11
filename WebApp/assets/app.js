@@ -190,6 +190,14 @@ const FEATURE_RELEASES = [
         type: "Improvement",
         status: "Released",
     },
+    {
+        version: "v003.03",
+        releasedAt: "2026-08-11 18:10:09 -04:00",
+        title: "Admin-Only Users Navigation",
+        description: "Reinforced Users page access so only Admin users can see or open user management, while Tech and Read-Only roles are redirected away.",
+        type: "Security",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
@@ -803,7 +811,7 @@ function renderReleaseNotes(returnPage = state.currentPage || "dashboard") {
             </div>
             <button class="btn back-btn" id="backToApplicationBtn" type="button">Back to Application</button>
             <div class="release-rules">
-                Version sequence: v001.01 through v001.09, then v002.00 through v002.09, then v003.00, v003.01, v003.02, and so on.
+                Version sequence: v001.01 through v001.09, then v002.00 through v002.09, then v003.00, v003.01, v003.02, v003.03, and so on.
             </div>
             <div class="release-list">
                 ${FEATURE_RELEASES.slice().reverse().map(release => `
@@ -845,6 +853,10 @@ function navigateToPage(page) {
 }
 
 async function renderUsers() {
+    if (!canManageUsers()) {
+        renderHome();
+        return;
+    }
     state.currentPage = "users";
     const mountHtml = shell(header() + `
         <section class="panel" style="padding:20px;">

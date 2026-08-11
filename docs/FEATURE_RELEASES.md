@@ -1,9 +1,9 @@
 # Release Notes
 
-Current application version: `v003.02`
+Current application version: `v003.03`
 
 Version sequence: `v001.01` through `v001.09`, then `v002.00`, followed by
-`v002.00` through `v002.09`, then `v003.00`, `v003.01`, `v003.02`, and so on.
+`v002.00` through `v002.09`, then `v003.00`, `v003.01`, `v003.02`, `v003.03`, and so on.
 
 Going forward, every approved and completed feature, improvement, bug fix, or
 security change should add a new entry here and update the current application
@@ -13,6 +13,7 @@ Newest releases are listed first.
 
 | Version | Release Date And Time | Type | Title | Description | Status |
 | --- | --- | --- | --- | --- | --- |
+| v003.03 | 2026-08-11 18:10:09 -04:00 | Security | Admin-Only Users Navigation | Reinforced Users page access so only Admin users can see or open user management, while Tech and Read-Only roles are redirected away. | Released |
 | v003.02 | 2026-08-11 18:06:43 -04:00 | Improvement | Upload Page Report Cleanup | Removed the dashboard/report view from the Upload CSV page so the section only shows upload controls and CSV Upload History. | Released |
 | v003.01 | 2026-08-11 17:48:33 -04:00 | Bug Fix | QU Export Readiness Detection | Improved the QU Admin automation to wait for the actual login form or Actions button instead of relying on URL timing during redirects. | Released |
 | v003.00 | 2026-08-11 17:45:44 -04:00 | Bug Fix | QU Export Target Page Detection | Fixed the GitHub Actions QU export automation so it stops retrying login after successfully reaching the terminals page. | Released |
