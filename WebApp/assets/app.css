@@ -158,19 +158,6 @@ h2 {
 
 .subtle { color: var(--muted); }
 
-.version-chip {
-    display: inline-flex;
-    width: fit-content;
-    margin-top: 2px;
-    border: 1px solid rgba(35, 199, 255, .34);
-    border-radius: 999px;
-    padding: 5px 10px;
-    color: #bfeeff;
-    background: rgba(35, 199, 255, .08);
-    font-size: 12px;
-    font-weight: 800;
-}
-
 .panel {
     background: linear-gradient(180deg, rgba(16, 29, 50, .92), rgba(11, 22, 38, .92));
     border: 1px solid var(--line);

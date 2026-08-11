@@ -126,6 +126,14 @@ const FEATURE_RELEASES = [
         type: "Improvement",
         status: "Released",
     },
+    {
+        version: "v002.05",
+        releasedAt: "2026-08-11 16:37:28 -04:00",
+        title: "Header Version Badge Cleanup",
+        description: "Removed the application version badge from the top page header while keeping the clickable footer version link for release notes.",
+        type: "Improvement",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
@@ -220,7 +228,6 @@ function header() {
                 <div>
                     <h1>QU POS Application Version Tools</h1>
                     <p class="subtle">QU terminal Generate A Searchable Version Report.</p>
-                    <span class="version-chip">Application Version ${escapeHtml(APP_VERSION)}</span>
                 </div>
             </div>
             <div class="user-menu">
@@ -726,7 +733,7 @@ function renderReleaseNotes(returnPage = state.currentPage || "dashboard") {
             </div>
             <button class="btn back-btn" id="backToApplicationBtn" type="button">Back to Application</button>
             <div class="release-rules">
-                Version sequence: v001.01 through v001.09, then v002.00, followed by v002.01, v002.02, v002.03, v002.04, and so on.
+                Version sequence: v001.01 through v001.09, then v002.00, followed by v002.01, v002.02, v002.03, v002.04, v002.05, and so on.
             </div>
             <div class="release-list">
                 ${FEATURE_RELEASES.slice().reverse().map(release => `
