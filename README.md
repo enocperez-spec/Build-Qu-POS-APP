@@ -26,9 +26,9 @@ historical comparisons.
 - Includes optional cloud automation templates for exporting terminals from QU
   Admin and importing the CSV into the web app.
 
-## Feature Releases
+## Release Notes
 
-The current application version is `v002.02`.
+The current application version is `v002.03`.
 
 Release history is tracked in [docs/FEATURE_RELEASES.md](docs/FEATURE_RELEASES.md).
 Every completed request receives the next version number and remains available

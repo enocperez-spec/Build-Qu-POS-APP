@@ -10,6 +10,7 @@ const state = {
     selectedUploadId: "",
     activeTab: "current",
     currentPage: "dashboard",
+    releaseNotesReturnPage: "dashboard",
 };
 
 const FEATURE_RELEASES = [
@@ -109,6 +110,14 @@ const FEATURE_RELEASES = [
         type: "Feature",
         status: "Released",
     },
+    {
+        version: "v002.03",
+        releasedAt: "2026-08-11 16:32:31 -04:00",
+        title: "Application Footer And Release Notes",
+        description: "Added a consistent footer with clickable application version, a dedicated Release Notes page, newest-first release history, and a Back to Application button.",
+        type: "Improvement",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
@@ -180,11 +189,19 @@ function shell(content, page = state.currentPage || "dashboard") {
                 <button class="${navClass("reports")}" id="reportsNavBtn">View Reports</button>
                 ${uploadNav}
                 <button class="${navClass("alerts")}" id="alertsNavBtn">Alerts</button>
-                <button class="${navClass("releases")}" id="releasesNavBtn">Feature Releases</button>
+                <button class="${navClass("releaseNotes")}" id="releaseNotesNavBtn">Release Notes</button>
                 ${adminNav}
             </aside>
-            <main class="main">${content}</main>
+            <main class="main">${content}${footer()}</main>
         </div>`;
+}
+
+function footer() {
+    return `
+        <footer class="app-footer">
+            <span>Copyright © GoTo Foods | Version </span>
+            <button class="footer-version" id="footerVersionBtn" type="button">${escapeHtml(APP_VERSION)}</button>
+        </footer>`;
 }
 
 function header() {
@@ -300,7 +317,7 @@ function renderUploadPage() {
 
 async function boot() {
     if (state.report) {
-        app.innerHTML = `<main class="report-only">${header()}${reportView(state.report)}</main>`;
+        app.innerHTML = `<main class="report-only">${header()}${reportView(state.report)}${footer()}</main>`;
         bindShell();
         bindReport();
         return;
@@ -345,8 +362,10 @@ function renderAuth() {
                 </form>
                 <div id="authMessage" class="status-message"></div>
             </section>
+            ${footer()}
         </main>`;
     document.getElementById("authForm").addEventListener("submit", submitAuth);
+    bindFooter();
 }
 
 function renderTwoFactor(setup = null) {
@@ -376,6 +395,7 @@ function renderTwoFactor(setup = null) {
                 </form>
                 <div id="twoFactorMessage" class="status-message"></div>
             </section>
+            ${footer()}
         </main>`;
     document.getElementById("twoFactorForm").addEventListener("submit", submitTwoFactor);
     document.getElementById("backToLoginBtn").addEventListener("click", async () => {
@@ -385,6 +405,7 @@ function renderTwoFactor(setup = null) {
     });
     if (isSetup) renderTwoFactorQr(setup.otpauthUri);
     document.getElementById("twoFactorCode").focus();
+    bindFooter();
 }
 
 function renderTwoFactorQr(otpauthUri) {
@@ -473,8 +494,13 @@ function bindShell() {
     document.getElementById("dashboardNavBtn")?.addEventListener("click", renderHome);
     document.getElementById("uploadNavBtn")?.addEventListener("click", renderUploadPage);
     document.getElementById("alertsNavBtn")?.addEventListener("click", renderAlertsPage);
-    document.getElementById("releasesNavBtn")?.addEventListener("click", renderFeatureReleases);
+    document.getElementById("releaseNotesNavBtn")?.addEventListener("click", () => renderReleaseNotes(state.currentPage || "dashboard"));
     document.getElementById("usersNavBtn")?.addEventListener("click", renderUsers);
+    bindFooter();
+}
+
+function bindFooter() {
+    document.getElementById("footerVersionBtn")?.addEventListener("click", () => renderReleaseNotes(state.currentPage || "dashboard"));
 }
 
 async function logout() {
@@ -673,22 +699,26 @@ async function renderAlertsPage() {
     }
 }
 
-function renderFeatureReleases() {
-    state.currentPage = "releases";
+function renderReleaseNotes(returnPage = state.currentPage || "dashboard") {
+    if (returnPage !== "releaseNotes") {
+        state.releaseNotesReturnPage = returnPage;
+    }
+    state.currentPage = "releaseNotes";
     app.innerHTML = shell(header() + `
         <section class="panel release-panel">
             <div class="release-heading">
                 <div>
-                    <h2>Feature Releases</h2>
-                    <p class="subtle">Every completed feature, improvement, bug fix, or security change receives the next application version number.</p>
+                    <h2>Release Notes</h2>
+                    <p class="subtle">Newest releases are shown first. Every completed feature, improvement, bug fix, or security change receives the next application version number.</p>
                 </div>
                 <div class="release-current">
                     <span class="label">Current Version</span>
                     <strong>${escapeHtml(APP_VERSION)}</strong>
                 </div>
             </div>
+            <button class="btn back-btn" id="backToApplicationBtn" type="button">Back to Application</button>
             <div class="release-rules">
-                Version sequence: v001.01 through v001.09, then v002.00, followed by v002.01, v002.02, and so on.
+                Version sequence: v001.01 through v001.09, then v002.00, followed by v002.01, v002.02, v002.03, and so on.
             </div>
             <div class="release-list">
                 ${FEATURE_RELEASES.slice().reverse().map(release => `
@@ -704,8 +734,29 @@ function renderFeatureReleases() {
                     </article>
                 `).join("")}
             </div>
-        </section>`, "releases");
+        </section>`, "releaseNotes");
     bindShell();
+    document.getElementById("backToApplicationBtn")?.addEventListener("click", () => navigateToPage(state.releaseNotesReturnPage || "dashboard"));
+}
+
+function navigateToPage(page) {
+    if (page === "reports") {
+        loadReports();
+        return;
+    }
+    if (page === "upload") {
+        renderUploadPage();
+        return;
+    }
+    if (page === "alerts") {
+        renderAlertsPage();
+        return;
+    }
+    if (page === "users") {
+        renderUsers();
+        return;
+    }
+    renderHome();
 }
 
 async function renderUsers() {
