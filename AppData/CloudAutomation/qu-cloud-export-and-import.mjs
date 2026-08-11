@@ -4,16 +4,38 @@ import path from 'node:path';
 import { chromium } from 'playwright';
 
 const settings = {
-  quUrl: process.env.QU_ADMIN_URL || 'https://admin.qubeyond.com/n/operations/terminals',
+  exportMode: (process.env.QU_EXPORT_MODE || 'terminals').toLowerCase(),
+  quUrl: process.env.QU_ADMIN_URL || '',
   quUsername: process.env.QU_ADMIN_USER,
   quPassword: process.env.QU_ADMIN_PASS,
-  importUrl: process.env.QU_APP_IMPORT_URL || 'https://quposapp.qupostech.com/api/cloud-import.php',
+  importUrl: process.env.QU_APP_IMPORT_URL || '',
   importToken: process.env.QU_APP_IMPORT_TOKEN,
   triggerType: process.env.QU_TRIGGER_TYPE || 'Scheduled',
   headless: String(process.env.QU_EXPORT_HEADLESS ?? 'true').toLowerCase() !== 'false',
   timeoutMs: Number(process.env.QU_EXPORT_TIMEOUT_MS || 90000),
   artifactDir: process.env.QU_EXPORT_ARTIFACT_DIR || path.resolve('artifacts'),
 };
+
+const exportTargets = {
+  terminals: {
+    quUrl: 'https://admin.qubeyond.com/n/operations/terminals',
+    importUrl: 'https://quposapp.qupostech.com/api/cloud-import.php',
+    exportText: /export terminals/i,
+    formField: 'currentCsv',
+    label: 'terminals',
+  },
+  stores: {
+    quUrl: 'https://admin.qubeyond.com/configuration/stores/',
+    importUrl: 'https://quposapp.qupostech.com/api/cloud-store-import.php',
+    exportText: /export store information/i,
+    formField: 'storeCsv',
+    label: 'stores',
+  },
+};
+
+const target = exportTargets[settings.exportMode] || exportTargets.terminals;
+settings.quUrl ||= target.quUrl;
+settings.importUrl ||= target.importUrl;
 
 function required(value, name) {
   if (!value) throw new Error(`Missing required secret or setting: ${name}`);
@@ -136,7 +158,7 @@ async function ensureTerminalPage(page) {
   }
 }
 
-async function exportTerminals() {
+async function exportCsv() {
   const browser = await chromium.launch({ headless: settings.headless });
   const context = await browser.newContext({ acceptDownloads: true });
   const page = await context.newPage();
@@ -153,12 +175,12 @@ async function exportTerminals() {
 
     const downloadPromise = page.waitForEvent('download', { timeout: settings.timeoutMs });
     await clickFirst(page, [
-      { name: 'Export Terminals item', locator: p => p.locator('a, button, [role="menuitem"], [role="button"]').filter({ hasText: /export terminals/i }) },
+      { name: `Export ${target.label} item`, locator: p => p.locator('a, button, [role="menuitem"], [role="button"]').filter({ hasText: target.exportText }) },
     ]);
     const download = await downloadPromise;
     const filePath = path.join(await fs.mkdtemp(path.join(os.tmpdir(), 'qu-export-')), download.suggestedFilename() || 'terminals.csv');
     await download.saveAs(filePath);
-    console.log(`Export saved: ${filePath}`);
+    console.log(`${target.label} export saved: ${filePath}`);
     return filePath;
   } catch (error) {
     await saveDiagnostics(page, 'export-failure', error);
@@ -172,7 +194,7 @@ async function exportTerminals() {
 async function importIntoWebApp(csvPath) {
   const form = new FormData();
   const bytes = await fs.readFile(csvPath);
-  form.append('currentCsv', new Blob([bytes], { type: 'text/csv' }), path.basename(csvPath));
+  form.append(target.formField, new Blob([bytes], { type: 'text/csv' }), path.basename(csvPath));
 
   const response = await fetch(required(settings.importUrl, 'QU_APP_IMPORT_URL'), {
     method: 'POST',
@@ -190,5 +212,5 @@ async function importIntoWebApp(csvPath) {
   console.log(`Web app updated: ${payload.htmlUrl || 'latest report generated'}`);
 }
 
-const csvPath = await exportTerminals();
+const csvPath = await exportCsv();
 await importIntoWebApp(csvPath);

@@ -69,6 +69,38 @@ CREATE TABLE IF NOT EXISTS terminal_rows (
         ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS store_imports (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    original_filename VARCHAR(255) NOT NULL,
+    row_count INT UNSIGNED NOT NULL DEFAULT 0,
+    uploaded_at DATETIME NOT NULL,
+    INDEX idx_store_imports_uploaded_at (uploaded_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS store_rows (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    import_id INT UNSIGNED NOT NULL,
+    `row_number` INT UNSIGNED NOT NULL,
+    store_id VARCHAR(80) NULL,
+    store_name VARCHAR(255) NULL,
+    brand VARCHAR(160) NULL,
+    status VARCHAR(120) NULL,
+    timezone VARCHAR(120) NULL,
+    address VARCHAR(255) NULL,
+    city VARCHAR(120) NULL,
+    state VARCHAR(80) NULL,
+    postal_code VARCHAR(40) NULL,
+    phone VARCHAR(80) NULL,
+    raw_json JSON NULL,
+    created_at DATETIME NOT NULL,
+    INDEX idx_store_rows_import_id (import_id),
+    INDEX idx_store_rows_store_id (store_id),
+    INDEX idx_store_rows_brand (brand),
+    CONSTRAINT fk_store_rows_import
+        FOREIGN KEY (import_id) REFERENCES store_imports(id)
+        ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS role_permissions (
     role VARCHAR(40) NOT NULL,
     section_key VARCHAR(80) NOT NULL,

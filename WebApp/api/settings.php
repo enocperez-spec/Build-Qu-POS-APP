@@ -41,7 +41,7 @@ try {
     }
 
     if ($action === 'add-schedule') {
-        Database::addApiSchedule($pdo, (string)($input['scheduledTime'] ?? ''));
+        Database::addApiSchedule($pdo, (string)($input['scheduledTime'] ?? ''), (string)($input['jobKey'] ?? Database::JOB_TERMINALS));
         echo json_encode(['ok' => true, 'schedules' => Database::listApiSchedules($pdo)]);
         exit;
     }
@@ -58,20 +58,22 @@ try {
     }
 
     if ($action === 'retrieve-data') {
-        if (!Database::acquireApiLock($pdo, 'qu_ei_terminals_csv', (string)$actingUser['displayName'])) {
+        $jobKey = (string)($input['jobKey'] ?? Database::JOB_TERMINALS);
+        $jobKey = $jobKey === Database::JOB_STORES ? Database::JOB_STORES : Database::JOB_TERMINALS;
+        if (!Database::acquireApiLock($pdo, $jobKey, (string)$actingUser['displayName'])) {
             throw new RuntimeException('A QU EI data retrieval is already running. Try again after it finishes.');
         }
         $started = microtime(true);
-        $logId = Database::startApiLog($pdo, 'Manual', $actingUser, 1);
+        $logId = Database::startApiLog($pdo, 'Manual', $actingUser, 1, $jobKey);
         try {
             Database::finishApiLog($pdo, $logId, 'Successful', [
                 'attempts' => 1,
                 'durationMs' => (int)((microtime(true) - $started) * 1000),
-            ]);
+            ], $jobKey);
             echo json_encode(['ok' => true, 'message' => 'Manual retrieval request logged.', 'logs' => Database::listApiLogs($pdo)]);
             exit;
         } finally {
-            Database::releaseApiLock($pdo, 'qu_ei_terminals_csv');
+            Database::releaseApiLock($pdo, $jobKey);
         }
     }
 

@@ -1,4 +1,4 @@
-name: QU Admin Terminal Export
+name: QU Admin Store Information Export
 
 on:
   workflow_dispatch:
@@ -9,7 +9,7 @@ on:
 
 jobs:
   export-and-import:
-    name: Export QU terminals and update dashboard
+    name: Export QU stores and update database
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -30,15 +30,15 @@ jobs:
         run: npx playwright install --with-deps chromium
         working-directory: AppData/CloudAutomation
 
-      - name: Export QU Admin terminal CSV and import into web app
+      - name: Export QU Admin store CSV and import into web app
         run: npm run export-and-import
         working-directory: AppData/CloudAutomation
         env:
-          QU_EXPORT_MODE: terminals
-          QU_ADMIN_URL: https://admin.qubeyond.com/n/operations/terminals
+          QU_EXPORT_MODE: stores
+          QU_ADMIN_URL: https://admin.qubeyond.com/configuration/stores/
           QU_ADMIN_USER: ${{ secrets.QU_ADMIN_USER }}
           QU_ADMIN_PASS: ${{ secrets.QU_ADMIN_PASS }}
-          QU_APP_IMPORT_URL: https://quposapp.qupostech.com/api/cloud-import.php
+          QU_APP_IMPORT_URL: https://quposapp.qupostech.com/api/cloud-store-import.php
           QU_APP_IMPORT_TOKEN: ${{ secrets.QU_APP_IMPORT_TOKEN }}
           QU_TRIGGER_TYPE: ${{ github.event_name == 'workflow_dispatch' && 'Manual' || 'Scheduled' }}
           QU_EXPORT_ARTIFACT_DIR: artifacts
@@ -47,7 +47,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: qu-admin-export-diagnostics
+          name: qu-admin-store-export-diagnostics
           path: AppData/CloudAutomation/artifacts/
           if-no-files-found: ignore
           retention-days: 7

@@ -11,6 +11,8 @@ final class Database
     public const SECTION_UPLOAD = 'upload';
     public const SECTION_ALERTS = 'alerts';
     public const SECTION_SETTINGS = 'settings';
+    public const JOB_TERMINALS = 'qu_ei_terminals_csv';
+    public const JOB_STORES = 'qu_ei_stores_csv';
 
     public static function fromConfig(): ?PDO
     {
@@ -117,6 +119,40 @@ final class Database
                 INDEX idx_terminal_rows_terminal_type (terminal_type),
                 CONSTRAINT fk_terminal_rows_upload
                     FOREIGN KEY (upload_id) REFERENCES csv_uploads(id)
+                    ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+        );
+        $pdo->exec(
+            "CREATE TABLE IF NOT EXISTS store_imports (
+                id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                original_filename VARCHAR(255) NOT NULL,
+                row_count INT UNSIGNED NOT NULL DEFAULT 0,
+                uploaded_at DATETIME NOT NULL,
+                INDEX idx_store_imports_uploaded_at (uploaded_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+        );
+        $pdo->exec(
+            "CREATE TABLE IF NOT EXISTS store_rows (
+                id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                import_id INT UNSIGNED NOT NULL,
+                `row_number` INT UNSIGNED NOT NULL,
+                store_id VARCHAR(80) NULL,
+                store_name VARCHAR(255) NULL,
+                brand VARCHAR(160) NULL,
+                status VARCHAR(120) NULL,
+                timezone VARCHAR(120) NULL,
+                address VARCHAR(255) NULL,
+                city VARCHAR(120) NULL,
+                state VARCHAR(80) NULL,
+                postal_code VARCHAR(40) NULL,
+                phone VARCHAR(80) NULL,
+                raw_json JSON NULL,
+                created_at DATETIME NOT NULL,
+                INDEX idx_store_rows_import_id (import_id),
+                INDEX idx_store_rows_store_id (store_id),
+                INDEX idx_store_rows_brand (brand),
+                CONSTRAINT fk_store_rows_import
+                    FOREIGN KEY (import_id) REFERENCES store_imports(id)
                     ON DELETE CASCADE
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
         );
@@ -373,6 +409,60 @@ final class Database
         $statement->execute([':id' => $uploadId]);
     }
 
+    public static function saveStoreImport(PDO $pdo, string $filename, array $rows): int
+    {
+        self::initialize($pdo);
+        $pdo->beginTransaction();
+        try {
+            $now = date('Y-m-d H:i:s');
+            $uploadStatement = $pdo->prepare(
+                "INSERT INTO store_imports (original_filename, row_count, uploaded_at)
+                 VALUES (:original_filename, :row_count, :uploaded_at)"
+            );
+            $uploadStatement->execute([
+                ':original_filename' => $filename,
+                ':row_count' => count($rows),
+                ':uploaded_at' => $now,
+            ]);
+            $importId = (int)$pdo->lastInsertId();
+
+            $rowStatement = $pdo->prepare(
+                "INSERT INTO store_rows (
+                    import_id, `row_number`, store_id, store_name, brand, status, timezone,
+                    address, city, state, postal_code, phone, raw_json, created_at
+                ) VALUES (
+                    :import_id, :row_number, :store_id, :store_name, :brand, :status, :timezone,
+                    :address, :city, :state, :postal_code, :phone, :raw_json, :created_at
+                )"
+            );
+
+            foreach ($rows as $index => $row) {
+                $rowStatement->execute([
+                    ':import_id' => $importId,
+                    ':row_number' => $index + 1,
+                    ':store_id' => self::fieldAny($row, ['Store ID', 'Store Id', 'Store Number', 'Number', 'ID']),
+                    ':store_name' => self::fieldAny($row, ['Store Name', 'Name', 'Location Name']),
+                    ':brand' => self::fieldAny($row, ['Brand', 'Concept', 'Store Brand']),
+                    ':status' => self::fieldAny($row, ['Status', 'Store Status']),
+                    ':timezone' => self::fieldAny($row, ['Timezone', 'Time Zone']),
+                    ':address' => self::fieldAny($row, ['Address', 'Address 1', 'Street Address']),
+                    ':city' => self::fieldAny($row, ['City']),
+                    ':state' => self::fieldAny($row, ['State', 'Province']),
+                    ':postal_code' => self::fieldAny($row, ['Postal Code', 'Zip', 'ZIP Code']),
+                    ':phone' => self::fieldAny($row, ['Phone', 'Phone Number']),
+                    ':raw_json' => json_encode($row, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+                    ':created_at' => $now,
+                ]);
+            }
+
+            $pdo->commit();
+            return $importId;
+        } catch (Throwable $exception) {
+            $pdo->rollBack();
+            throw $exception;
+        }
+    }
+
     public static function saveReport(PDO $pdo, array $result): void
     {
         self::initialize($pdo);
@@ -548,23 +638,29 @@ final class Database
         $statement = $pdo->query(
             "SELECT id, job_key, job_name, scheduled_time, timezone, is_active, last_run_at, last_status
              FROM api_schedules
-             WHERE job_key = 'qu_ei_terminals_csv'
-             ORDER BY scheduled_time ASC"
+             ORDER BY job_name ASC, scheduled_time ASC"
         );
         return array_map([self::class, 'apiScheduleRow'], $statement->fetchAll());
     }
 
-    public static function addApiSchedule(PDO $pdo, string $time): void
+    public static function addApiSchedule(PDO $pdo, string $time, string $jobKey = self::JOB_TERMINALS): void
     {
         self::initialize($pdo);
         $time = self::validateScheduleTime($time);
+        $job = self::apiJob($jobKey);
         $now = date('Y-m-d H:i:s');
         $statement = $pdo->prepare(
             "INSERT INTO api_schedules (job_key, job_name, scheduled_time, timezone, is_active, created_at, updated_at)
-             VALUES ('qu_ei_terminals_csv', 'QU EI Terminals CSV', :scheduled_time, 'America/New_York', 1, :created_at, :updated_at)"
+             VALUES (:job_key, :job_name, :scheduled_time, 'America/New_York', 1, :created_at, :updated_at)"
         );
         try {
-            $statement->execute([':scheduled_time' => $time, ':created_at' => $now, ':updated_at' => $now]);
+            $statement->execute([
+                ':job_key' => $job['key'],
+                ':job_name' => $job['name'],
+                ':scheduled_time' => $time,
+                ':created_at' => $now,
+                ':updated_at' => $now,
+            ]);
         } catch (PDOException $exception) {
             if ($exception->getCode() === '23000') {
                 throw new RuntimeException('That scheduled time already exists.');
@@ -606,19 +702,22 @@ final class Database
         return array_map([self::class, 'apiLogRow'], $statement->fetchAll());
     }
 
-    public static function startApiLog(PDO $pdo, string $triggerType, ?array $user = null, int $attempts = 1): int
+    public static function startApiLog(PDO $pdo, string $triggerType, ?array $user = null, int $attempts = 1, string $jobKey = self::JOB_TERMINALS): int
     {
         self::initialize($pdo);
+        $job = self::apiJob($jobKey);
         $statement = $pdo->prepare(
             "INSERT INTO api_logs (
                 job_key, source, trigger_type, initiated_by_user_id, initiated_by_name,
                 status, attempts, started_at
              ) VALUES (
-                'qu_ei_terminals_csv', 'QU EI Admin Terminals CSV', :trigger_type, :user_id, :user_name,
+                :job_key, :source, :trigger_type, :user_id, :user_name,
                 'In Progress', :attempts, :started_at
              )"
         );
         $statement->execute([
+            ':job_key' => $job['key'],
+            ':source' => $job['source'],
             ':trigger_type' => $triggerType,
             ':user_id' => $user['id'] ?? null,
             ':user_name' => $user['displayName'] ?? null,
@@ -628,7 +727,7 @@ final class Database
         return (int)$pdo->lastInsertId();
     }
 
-    public static function finishApiLog(PDO $pdo, int $id, string $status, array $stats = []): void
+    public static function finishApiLog(PDO $pdo, int $id, string $status, array $stats = [], string $jobKey = self::JOB_TERMINALS): void
     {
         self::initialize($pdo);
         $statement = $pdo->prepare(
@@ -657,8 +756,9 @@ final class Database
             ':completed_at' => date('Y-m-d H:i:s'),
         ]);
         $pdo->prepare(
-            "UPDATE api_schedules SET last_run_at = :last_run_at, last_status = :last_status, updated_at = :updated_at WHERE job_key = 'qu_ei_terminals_csv'"
+            "UPDATE api_schedules SET last_run_at = :last_run_at, last_status = :last_status, updated_at = :updated_at WHERE job_key = :job_key"
         )->execute([
+            ':job_key' => self::apiJob($jobKey)['key'],
             ':last_run_at' => date('Y-m-d H:i:s'),
             ':last_status' => $status,
             ':updated_at' => date('Y-m-d H:i:s'),
@@ -853,8 +953,27 @@ final class Database
 
     private static function field(array $row, string $name): ?string
     {
+        if (!array_key_exists($name, $row)) {
+            foreach ($row as $key => $candidate) {
+                if (strcasecmp(trim((string)$key), $name) === 0) {
+                    $value = trim((string)$candidate);
+                    return $value === '' ? null : $value;
+                }
+            }
+        }
         $value = trim((string)($row[$name] ?? ''));
         return $value === '' ? null : $value;
+    }
+
+    private static function fieldAny(array $row, array $names): ?string
+    {
+        foreach ($names as $name) {
+            $value = self::field($row, $name);
+            if ($value !== null) {
+                return $value;
+            }
+        }
+        return null;
     }
 
     private static function csvUploadRow(array $row): array
@@ -913,12 +1032,37 @@ final class Database
     {
         $statement = $pdo->prepare(
             "INSERT IGNORE INTO api_schedules (job_key, job_name, scheduled_time, timezone, is_active, created_at, updated_at)
-             VALUES ('qu_ei_terminals_csv', 'QU EI Terminals CSV', :scheduled_time, 'America/New_York', 1, :created_at, :updated_at)"
+             VALUES (:job_key, :job_name, :scheduled_time, 'America/New_York', 1, :created_at, :updated_at)"
         );
         $now = date('Y-m-d H:i:s');
-        foreach (['08:00', '14:00'] as $time) {
-            $statement->execute([':scheduled_time' => $time, ':created_at' => $now, ':updated_at' => $now]);
+        foreach ([self::JOB_TERMINALS, self::JOB_STORES] as $jobKey) {
+            $job = self::apiJob($jobKey);
+            foreach (['08:00', '14:00'] as $time) {
+                $statement->execute([
+                    ':job_key' => $job['key'],
+                    ':job_name' => $job['name'],
+                    ':scheduled_time' => $time,
+                    ':created_at' => $now,
+                    ':updated_at' => $now,
+                ]);
+            }
         }
+    }
+
+    private static function apiJob(string $jobKey): array
+    {
+        return match ($jobKey) {
+            self::JOB_STORES => [
+                'key' => self::JOB_STORES,
+                'name' => 'QU EI Store Information CSV',
+                'source' => 'QU EI Store Information CSV',
+            ],
+            default => [
+                'key' => self::JOB_TERMINALS,
+                'name' => 'QU EI Terminals CSV',
+                'source' => 'QU EI Admin Terminals CSV',
+            ],
+        };
     }
 
     private static function validateScheduleTime(string $time): string

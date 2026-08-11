@@ -231,6 +231,14 @@ const FEATURE_RELEASES = [
         type: "Bug Fix",
         status: "Released",
     },
+    {
+        version: "v003.08",
+        releasedAt: "2026-08-11 19:15:00 -04:00",
+        title: "QU EI Store Data Synchronization",
+        description: "Added SQL storage, API logging, schedule entries, and cloud automation support for exporting Store Information from QU EI and importing the latest store data.",
+        type: "Feature",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
@@ -866,7 +874,7 @@ function renderReleaseNotes(returnPage = state.currentPage || "dashboard") {
             </div>
             <button class="btn back-btn" id="backToApplicationBtn" type="button">Back to Application</button>
             <div class="release-rules">
-                Version sequence: v001.01 through v001.09, then v002.00 through v002.09, then v003.00, v003.01, v003.02, v003.03, v003.04, v003.05, v003.06, v003.07, and so on.
+                Version sequence: v001.01 through v001.09, then v002.00 through v002.09, then v003.00, v003.01, v003.02, v003.03, v003.04, v003.05, v003.06, v003.07, v003.08, and so on.
             </div>
             <div class="release-list">
                 ${FEATURE_RELEASES.slice().reverse().map(release => `
@@ -1056,9 +1064,12 @@ function apiLogsPanel() {
             <div class="settings-actions-heading">
                 <div>
                     <h2>API Logs</h2>
-                    <p class="subtle">Newest QU EI terminal retrieval activity appears first.</p>
+                    <p class="subtle">Newest QU EI terminal and store retrieval activity appears first.</p>
                 </div>
-                <button class="btn primary" id="retrieveDataBtn" type="button">Retrieve Data</button>
+                <div class="row-actions">
+                    <button class="btn primary" data-retrieve-job="qu_ei_terminals_csv" type="button">Retrieve Terminals</button>
+                    <button class="btn primary" data-retrieve-job="qu_ei_stores_csv" type="button">Retrieve Stores</button>
+                </div>
             </div>
             <div id="apiLogsMessage" class="status-message"></div>
             <div id="apiLogsList"></div>
@@ -1066,7 +1077,9 @@ function apiLogsPanel() {
 }
 
 function bindApiLogs() {
-    document.getElementById("retrieveDataBtn")?.addEventListener("click", retrieveDataNow);
+    document.querySelectorAll("button[data-retrieve-job]").forEach(button => {
+        button.addEventListener("click", () => retrieveDataNow(button.dataset.retrieveJob, button));
+    });
 }
 
 async function loadApiLogs() {
@@ -1095,13 +1108,16 @@ async function loadApiLogs() {
     ]));
 }
 
-async function retrieveDataNow() {
-    const button = document.getElementById("retrieveDataBtn");
+async function retrieveDataNow(jobKey, button) {
     const message = document.getElementById("apiLogsMessage");
     button.disabled = true;
     message.textContent = "Starting manual retrieval...";
     try {
-        const response = await fetch("api/settings.php?action=retrieve-data", { method: "POST" });
+        const response = await fetch("api/settings.php?action=retrieve-data", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ jobKey }),
+        });
         const payload = await parseJsonResponse(response);
         if (!payload.ok) throw new Error(payload.error || "Could not retrieve data.");
         message.textContent = payload.message || "Manual retrieval started.";
@@ -1121,9 +1137,13 @@ function apiTimesPanel() {
             <div class="settings-actions-heading">
                 <div>
                     <h2>API Call Times</h2>
-                    <p class="subtle">Manage the QU EI Terminals CSV schedule in America/New_York time.</p>
+                    <p class="subtle">Manage QU EI schedules in America/New_York time.</p>
                 </div>
                 <form id="addScheduleForm" class="inline-form">
+                    <select class="text-input" id="newScheduleJob">
+                        <option value="qu_ei_terminals_csv">QU EI Terminals CSV</option>
+                        <option value="qu_ei_stores_csv">QU EI Store Information CSV</option>
+                    </select>
                     <input class="text-input" id="newScheduleTime" type="time" required>
                     <button class="btn primary" type="submit">Add Time</button>
                 </form>
@@ -1163,7 +1183,12 @@ async function loadApiSchedules() {
 
 async function addScheduleTime(event) {
     event.preventDefault();
-    await saveSchedule("api/settings.php?action=add-schedule", document.getElementById("newScheduleTime").value);
+    await saveSchedule(
+        "api/settings.php?action=add-schedule",
+        document.getElementById("newScheduleTime").value,
+        null,
+        document.getElementById("newScheduleJob").value
+    );
     event.target.reset();
 }
 
@@ -1172,13 +1197,13 @@ async function updateScheduleTime(id) {
     await saveSchedule("api/settings.php?action=update-schedule", value, id);
 }
 
-async function saveSchedule(url, scheduledTime, id = null) {
+async function saveSchedule(url, scheduledTime, id = null, jobKey = null) {
     const message = document.getElementById("apiTimesMessage");
     message.textContent = "Saving schedule...";
     const response = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, scheduledTime }),
+        body: JSON.stringify({ id, scheduledTime, jobKey }),
     });
     const payload = await parseJsonResponse(response);
     if (!payload.ok) {

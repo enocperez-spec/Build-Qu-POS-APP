@@ -3,9 +3,8 @@ name: QU Admin Terminal Export
 on:
   workflow_dispatch:
   schedule:
-    # 4 AM, 10 AM, 4 PM, and 10 PM America/New_York during daylight saving time.
-    # Adjust to 09,15,21,03 UTC during standard time if exact local-time alignment is required.
-    - cron: "0 8,14,20,2 * * *"
+    # Default 8 AM and 2 PM Eastern daylight-saving windows.
+    - cron: "0 12,18 * * *"
 
 jobs:
   export-and-import:
@@ -23,11 +22,13 @@ jobs:
       - run: npm run export-and-import
         working-directory: AppData/CloudAutomation
         env:
+          QU_EXPORT_MODE: terminals
           QU_ADMIN_URL: https://admin.qubeyond.com/n/operations/terminals
           QU_ADMIN_USER: ${{ secrets.QU_ADMIN_USER }}
           QU_ADMIN_PASS: ${{ secrets.QU_ADMIN_PASS }}
           QU_APP_IMPORT_URL: https://quposapp.qupostech.com/api/cloud-import.php
           QU_APP_IMPORT_TOKEN: ${{ secrets.QU_APP_IMPORT_TOKEN }}
+          QU_TRIGGER_TYPE: ${{ github.event_name == 'workflow_dispatch' && 'Manual' || 'Scheduled' }}
           QU_EXPORT_ARTIFACT_DIR: artifacts
       - uses: actions/upload-artifact@v4
         if: failure()

@@ -27,10 +27,12 @@ historical comparisons.
   logs, and configurable API call times.
 - Includes optional cloud automation templates for exporting terminals from QU
   Admin and importing the CSV into the web app.
+- Includes QU EI Store Information synchronization with SQL storage for the
+  latest exported store data.
 
 ## Release Notes
 
-The current application version is `v003.07`.
+The current application version is `v003.08`.
 
 Release history is tracked in [docs/FEATURE_RELEASES.md](docs/FEATURE_RELEASES.md).
 Every completed request receives the next version number and remains available
@@ -62,9 +64,9 @@ CSVs, generated reports, or local deployment files.
 
 ## GitHub CSV Automation
 
-The workflow at `.github/workflows/qu-admin-terminal-export.yml` can export the
-terminal CSV from QU Admin and import it into the web app automatically every 6
-hours.
+The workflows at `.github/workflows/qu-admin-terminal-export.yml` and
+`.github/workflows/qu-admin-store-export.yml` can export terminal and store CSV
+data from QU Admin and import it into the web app automatically.
 
 Required GitHub repository secrets:
 
