@@ -509,6 +509,23 @@ h2 {
     min-height: 94px;
 }
 
+.dashboard-shortcut {
+    width: 100%;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease;
+}
+
+.dashboard-shortcut:hover,
+.dashboard-shortcut:focus-visible {
+    transform: translateY(-2px);
+    border-color: rgba(35, 199, 255, .68);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, .2), 0 0 0 1px rgba(35, 199, 255, .22);
+    outline: none;
+}
+
 .metric-icon {
     width: clamp(30px, 3vw, 40px);
     height: clamp(30px, 3vw, 40px);
@@ -618,6 +635,22 @@ h2 {
 .metric-qubox .value,
 .metric-other .value {
     color: #8fdcff;
+}
+
+.report-section {
+    scroll-margin-top: 24px;
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
 }
 
 .tabs {

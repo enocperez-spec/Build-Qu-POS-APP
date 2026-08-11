@@ -33,10 +33,12 @@ historical comparisons.
   and QU EI automation status.
 - Shows dashboard trend indicators for out-of-date stores and stable-version
   usage compared with the previous upload.
+- Lets users click dashboard metric cards to jump directly into matching report
+  details and filtered out-of-date stores.
 
 ## Release Notes
 
-The current application version is `v004.00`.
+The current application version is `v004.01`.
 
 Release history is tracked in [docs/FEATURE_RELEASES.md](docs/FEATURE_RELEASES.md).
 Every completed request receives the next version number and remains available

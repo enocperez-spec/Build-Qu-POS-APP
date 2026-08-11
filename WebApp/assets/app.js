@@ -256,6 +256,14 @@ const FEATURE_RELEASES = [
         type: "Improvement",
         status: "Released",
     },
+    {
+        version: "v004.01",
+        releasedAt: "2026-08-11 20:15:00 -04:00",
+        title: "Clickable Dashboard Metric Cards",
+        description: "Made dashboard metric cards clickable so users can jump directly to filtered out-of-date stores, POS, Kiosk, QuBox, and other version details.",
+        type: "Improvement",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
@@ -1424,12 +1432,12 @@ function summaryCards(report) {
     const trends = s.trends || {};
     return `
         <div class="summary-grid">
-            ${metricCard("POS App Terminals", s.posAppTerminals, "Total terminals", "terminals")}
-            ${metricCard("Current Stable Version", s.currentStableVersion, `${s.currentStableVersionCount} terminals | ${formatPercent(s.currentStableVersionUsagePercent)} stable usage`, "stable", stableUsageTrend(trends.stableVersionUsage))}
-            ${metricCard("Out-Of-Date Stores", s.outOfDateStores, "Stores below stable", "outdated", outOfDateTrend(trends.outOfDateStores))}
-            ${metricCard("Kiosk Versions", s.kioskVersions, "Active versions", "kiosk")}
-            ${metricCard("QuBox Versions", s.quboxVersions, "Active versions", "qubox")}
-            ${metricCard("Other Versions", s.otherVersions, "Active versions", "other")}
+            ${metricCard("POS App Terminals", s.posAppTerminals, "Total terminals", "terminals", "", "pos")}
+            ${metricCard("Current Stable Version", s.currentStableVersion, `${s.currentStableVersionCount} terminals | ${formatPercent(s.currentStableVersionUsagePercent)} stable usage`, "stable", stableUsageTrend(trends.stableVersionUsage), "stable")}
+            ${metricCard("Out-Of-Date Stores", s.outOfDateStores, "Stores below stable", "outdated", outOfDateTrend(trends.outOfDateStores), "outdated-stores")}
+            ${metricCard("Kiosk Versions", s.kioskVersions, "Active versions", "kiosk", "", "kiosk")}
+            ${metricCard("QuBox Versions", s.quboxVersions, "Active versions", "qubox", "", "qubox")}
+            ${metricCard("Other Versions", s.otherVersions, "Active versions", "other", "", "other")}
         </div>`;
 }
 
@@ -1437,9 +1445,9 @@ function card(label, value, meta = "") {
     return `<div class="card"><span class="label">${escapeHtml(label)}</span><span class="value">${escapeHtml(value)}</span>${meta ? `<span class="subtle">${escapeHtml(meta)}</span>` : ""}</div>`;
 }
 
-function metricCard(label, value, meta, type, trend = "") {
+function metricCard(label, value, meta, type, trend = "", shortcut = "") {
     return `
-        <div class="card metric-card metric-${escapeHtml(type)}">
+        <button class="card metric-card metric-${escapeHtml(type)} dashboard-shortcut" type="button" data-shortcut="${escapeHtml(shortcut)}" aria-label="Open ${escapeHtml(label)} details">
             <div class="metric-icon" aria-hidden="true">${metricIcon(type)}</div>
             <div class="metric-copy">
                 <span class="label">${escapeHtml(label)}</span>
@@ -1447,7 +1455,7 @@ function metricCard(label, value, meta, type, trend = "") {
                 ${meta ? `<span class="metric-meta">${escapeHtml(meta)}</span>` : ""}
                 ${trend}
             </div>
-        </div>`;
+        </button>`;
 }
 
 function outOfDateTrend(trend) {
@@ -1497,26 +1505,28 @@ function tabContent(report, tab) {
 
 function currentTab(report) {
     return `
-        ${versionSection("Downloadable QU POS Versions", report.downloadableVersions, report)}
+        ${versionSection("Downloadable QU POS Versions", report.downloadableVersions, report, "pos-versions")}
         ${outdatedSection(report)}
-        ${versionSection("Downloadable Kiosk Versions", report.kioskVersions, report)}
-        ${versionSection("QuBox Versions", report.quboxVersions, report)}
-        ${versionSection("Other Terminal Versions", report.otherVersions, report)}`;
+        ${versionSection("Downloadable Kiosk Versions", report.kioskVersions, report, "kiosk-versions")}
+        ${versionSection("QuBox Versions", report.quboxVersions, report, "qubox-versions")}
+        ${versionSection("Other Terminal Versions", report.otherVersions, report, "other-versions")}`;
 }
 
-function versionSection(title, versions, report) {
+function versionSection(title, versions, report, sectionId = "") {
     if (!versions?.length) return "";
     return `
-        <h2>${escapeHtml(title)}</h2>
-        ${simpleTable(["Version", "Release Train", "Terminals", "Stores", "Types", "Download"], versions.map(item => [
-            badge(item.version, report),
-            item.releaseTrain || "",
-            item.terminalCount,
-            item.storeCount,
-            item.terminalTypes,
-            item.url ? `<a href="${escapeHtml(item.url)}" target="_blank">Download</a>` : ""
-        ]))}
-        ${versions.map(item => versionDetail(item, report)).join("")}`;
+        <section class="report-section" ${sectionId ? `id="${escapeHtml(sectionId)}"` : ""}>
+            <h2>${escapeHtml(title)}</h2>
+            ${simpleTable(["Version", "Release Train", "Terminals", "Stores", "Types", "Download"], versions.map(item => [
+                badge(item.version, report),
+                item.releaseTrain || "",
+                item.terminalCount,
+                item.storeCount,
+                item.terminalTypes,
+                item.url ? `<a href="${escapeHtml(item.url)}" target="_blank">Download</a>` : ""
+            ]))}
+            ${versions.map(item => versionDetail(item, report)).join("")}
+        </section>`;
 }
 
 function versionDetail(item, report) {
@@ -1554,7 +1564,7 @@ function storesTab(report) {
         store.storeName,
         (store.versionsDetectedList || []).map(version => badge(version, report)).join(""),
         badge(store.mostCommonVersion, report),
-        store.outOfDateTerminalCount,
+        `${escapeHtml(store.outOfDateTerminalCount)}${Number(store.outOfDateTerminalCount) > 0 ? '<span class="sr-only"> out-of-date-store</span>' : ""}`,
         store.totalPosTerminals,
         store.latestSeen
     ]));
@@ -1603,15 +1613,43 @@ function simpleTable(headers, rows) {
 
 function bindReport() {
     document.querySelectorAll(".tab-btn").forEach(button => {
-        button.addEventListener("click", () => {
-            state.activeTab = button.dataset.tab;
-            document.querySelectorAll(".tab-btn").forEach(item => item.classList.toggle("active", item === button));
-            document.getElementById("tabContent").innerHTML = tabContent(state.report, state.activeTab);
-            filterRows(document.getElementById("reportSearch")?.value || "");
-        });
+        button.addEventListener("click", () => activateReportTab(button.dataset.tab));
     });
     document.getElementById("reportSearch")?.addEventListener("input", event => filterRows(event.target.value));
-    document.querySelectorAll("th").forEach((th, index) => th.addEventListener("click", () => sortTable(th.closest("table"), index)));
+    document.querySelectorAll(".dashboard-shortcut").forEach(button => {
+        button.addEventListener("click", () => followDashboardShortcut(button.dataset.shortcut));
+    });
+    bindSortableHeaders();
+}
+
+function activateReportTab(tab, search = null, sectionId = "") {
+    state.activeTab = tab;
+    document.querySelectorAll(".tab-btn").forEach(item => item.classList.toggle("active", item.dataset.tab === tab));
+    document.getElementById("tabContent").innerHTML = tabContent(state.report, state.activeTab);
+    const searchInput = document.getElementById("reportSearch");
+    if (search !== null && searchInput) searchInput.value = search;
+    filterRows(searchInput?.value || "");
+    bindSortableHeaders();
+    const target = sectionId ? document.getElementById(sectionId) : document.getElementById("tabContent");
+    target?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (searchInput && search !== null) searchInput.focus({ preventScroll: true });
+}
+
+function followDashboardShortcut(shortcut) {
+    const stableVersion = state.report?.summary?.currentStableVersion || "";
+    const actions = {
+        pos: () => activateReportTab("current", "", "pos-versions"),
+        stable: () => activateReportTab("current", stableVersion && stableVersion !== "N/A" ? stableVersion : "", "pos-versions"),
+        "outdated-stores": () => activateReportTab("stores", "out-of-date-store"),
+        kiosk: () => activateReportTab("current", "", "kiosk-versions"),
+        qubox: () => activateReportTab("current", "", "qubox-versions"),
+        other: () => activateReportTab("current", "", "other-versions"),
+    };
+    (actions[shortcut] || actions.pos)();
+}
+
+function bindSortableHeaders() {
+    document.querySelectorAll("#tabContent th").forEach((th, index) => th.addEventListener("click", () => sortTable(th.closest("table"), index)));
 }
 
 function filterRows(query) {
