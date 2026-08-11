@@ -28,7 +28,7 @@ historical comparisons.
 
 ## Release Notes
 
-The current application version is `v002.03`.
+The current application version is `v002.04`.
 
 Release history is tracked in [docs/FEATURE_RELEASES.md](docs/FEATURE_RELEASES.md).
 Every completed request receives the next version number and remains available
@@ -48,9 +48,6 @@ as historical release notes.
 - `WebApp/api/` contains authentication, upload, report, user, and database APIs.
 - `AppData/CloudAutomation/` contains the optional GitHub Actions and Playwright
   automation template.
-- `AppData/Qu_App.ps1` and `AppData/Qu_App_UI.ps1` contain the Windows PowerShell
-  version of the report tool.
-- `Qu_App.hta` is the Windows HTA launcher for the PowerShell report tool.
 - `tools/QuApp.IonosPublisher/` contains the SFTP publishing helper source.
 
 ## Configuration

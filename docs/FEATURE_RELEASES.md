@@ -1,9 +1,9 @@
 # Release Notes
 
-Current application version: `v002.03`
+Current application version: `v002.04`
 
 Version sequence: `v001.01` through `v001.09`, then `v002.00`, followed by
-`v002.01`, `v002.02`, `v002.03`, and so on.
+`v002.01`, `v002.02`, `v002.03`, `v002.04`, and so on.
 
 Going forward, every approved and completed feature, improvement, bug fix, or
 security change should add a new entry here and update the current application
@@ -13,6 +13,7 @@ Newest releases are listed first.
 
 | Version | Release Date And Time | Type | Title | Description | Status |
 | --- | --- | --- | --- | --- | --- |
+| v002.04 | 2026-08-11 16:35:41 -04:00 | Improvement | Legacy Windows Tool Cleanup | Removed legacy PowerShell and HTA launcher files from the GitHub project so the repository reflects the web application codebase. | Released |
 | v002.03 | 2026-08-11 16:32:31 -04:00 | Improvement | Application Footer And Release Notes | Added a consistent footer with clickable application version, a dedicated Release Notes page, newest-first release history, and a Back to Application button. | Released |
 | v002.02 | 2026-08-11 16:25:49 -04:00 | Feature | Feature Release Tracking | Added a Feature Releases section and version-tracking history so each completed request can be recorded with version, date, title, description, change type, and release status. | Released |
 | v002.01 | 2026-08-11 15:30:05 -04:00 | Improvement | GitHub README And Dashboard Screenshot | Updated the GitHub README with a full application overview, role descriptions, project layout, validation commands, and a dashboard screenshot. | Released |
