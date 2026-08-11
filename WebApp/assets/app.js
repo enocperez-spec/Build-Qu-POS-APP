@@ -280,6 +280,14 @@ const FEATURE_RELEASES = [
         type: "Improvement",
         status: "Released",
     },
+    {
+        version: "v004.04",
+        releasedAt: "2026-08-11 21:05:00 -04:00",
+        title: "Dashboard Trend Label Cleanup",
+        description: "Removed the visual trend chips from the Current Stable Version and Out-Of-Date Stores dashboard cards for a cleaner card layout.",
+        type: "Improvement",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
@@ -963,7 +971,7 @@ function renderReleaseNotes(returnPage = state.currentPage || "dashboard") {
             </div>
             <button class="btn back-btn" id="backToApplicationBtn" type="button">Back to Application</button>
             <div class="release-rules">
-                Version sequence: v001.01 through v001.09, then v002.00 through v002.09, then v003.00 through v003.09, then v004.00, v004.01, v004.02, v004.03, and so on.
+                Version sequence: v001.01 through v001.09, then v002.00 through v002.09, then v003.00 through v003.09, then v004.00, v004.01, v004.02, v004.03, v004.04, and so on.
             </div>
             <div class="release-list">
                 ${FEATURE_RELEASES.slice().reverse().map(release => `
@@ -1458,12 +1466,11 @@ function reportView(report) {
 
 function summaryCards(report) {
     const s = report.summary;
-    const trends = s.trends || {};
     return `
         <div class="summary-grid">
             ${metricCard("POS App Terminals", s.posAppTerminals, "Total terminals", "terminals", "", "pos")}
-            ${metricCard("Current Stable Version", s.currentStableVersion, `${s.currentStableVersionCount} terminals | ${formatPercent(s.currentStableVersionUsagePercent)} stable usage`, "stable", stableUsageTrend(trends.stableVersionUsage), "stable")}
-            ${metricCard("Out-Of-Date Stores", s.outOfDateStores, "Stores below stable", "outdated", outOfDateTrend(trends.outOfDateStores), "outdated-stores")}
+            ${metricCard("Current Stable Version", s.currentStableVersion, `${s.currentStableVersionCount} terminals | ${formatPercent(s.currentStableVersionUsagePercent)} stable usage`, "stable", "", "stable")}
+            ${metricCard("Out-Of-Date Stores", s.outOfDateStores, "Stores below stable", "outdated", "", "outdated-stores")}
             ${metricCard("Kiosk Versions", s.kioskVersions, "Active versions", "kiosk", "", "kiosk")}
             ${metricCard("QuBox Versions", s.quboxVersions, "Active versions", "qubox", "", "qubox")}
             ${metricCard("Other Versions", s.otherVersions, "Active versions", "other", "", "other")}
@@ -1485,27 +1492,6 @@ function metricCard(label, value, meta, type, trend = "", shortcut = "") {
                 ${trend}
             </div>
         </button>`;
-}
-
-function outOfDateTrend(trend) {
-    if (!trend || trend.previous === undefined || trend.previous === null) return "";
-    const delta = Number(trend.delta || 0);
-    if (delta < 0) return trendChip("good", `${Math.abs(delta)} fewer stores than last upload`);
-    if (delta > 0) return trendChip("bad", `${delta} more stores than last upload`);
-    return trendChip("flat", `Holding steady at ${trend.current} stores`);
-}
-
-function stableUsageTrend(trend) {
-    if (!trend || trend.deltaPercent === undefined || trend.deltaPercent === null) return "";
-    const delta = Number(trend.deltaPercent || 0);
-    if (delta > 0) return trendChip("good", `Stable usage up ${delta.toFixed(1)} pts`);
-    if (delta < 0) return trendChip("bad", `Stable usage down ${Math.abs(delta).toFixed(1)} pts`);
-    return trendChip("flat", "Stable usage holding steady");
-}
-
-function trendChip(status, label) {
-    const icons = { good: "▲", bad: "▼", flat: "→" };
-    return `<span class="trend-chip trend-${escapeHtml(status)}">${icons[status] || icons.flat} ${escapeHtml(label)}</span>`;
 }
 
 function formatPercent(value) {

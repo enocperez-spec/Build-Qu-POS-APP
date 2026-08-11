@@ -1,10 +1,10 @@
 # Release Notes
 
-Current application version: `v004.03`
+Current application version: `v004.04`
 
 Version sequence: `v001.01` through `v001.09`, then `v002.00`, followed by
 `v002.00` through `v002.09`, then `v003.00` through `v003.09`, then `v004.00`,
-`v004.01`, `v004.02`, `v004.03`, and so on.
+`v004.01`, `v004.02`, `v004.03`, `v004.04`, and so on.
 
 Going forward, every approved and completed feature, improvement, bug fix, or
 security change should add a new entry here and update the current application
@@ -14,6 +14,7 @@ Newest releases are listed first.
 
 | Version | Release Date And Time | Type | Title | Description | Status |
 | --- | --- | --- | --- | --- | --- |
+| v004.04 | 2026-08-11 21:05:00 -04:00 | Improvement | Dashboard Trend Label Cleanup | Removed the visual trend chips from the Current Stable Version and Out-Of-Date Stores dashboard cards for a cleaner card layout. | Released |
 | v004.03 | 2026-08-11 20:55:00 -04:00 | Improvement | Cleaner Dashboard Trend Wording | Improved the stable usage and out-of-date stores trend labels so unchanged, improved, and increased states read more clearly on the dashboard cards. | Released |
 | v004.02 | 2026-08-11 20:35:00 -04:00 | Improvement | Polished Header User Profile Card | Updated the top-right dashboard user area with a polished profile card showing initials, username, role, dashboard last updated time, and the Log Out action. | Released |
 | v004.01 | 2026-08-11 20:15:00 -04:00 | Improvement | Clickable Dashboard Metric Cards | Made dashboard metric cards clickable so users can jump directly to filtered out-of-date stores, POS, Kiosk, QuBox, and other version details. | Released |
