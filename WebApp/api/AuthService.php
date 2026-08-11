@@ -58,6 +58,17 @@ final class Auth
         return $user;
     }
 
+    public static function requireSection(PDO $pdo, string $section): array
+    {
+        $user = self::requireLogin();
+        if (!Database::userCanAccessSection($pdo, $user, $section)) {
+            http_response_code(403);
+            echo json_encode(['ok' => false, 'error' => 'You do not have access to this section.']);
+            exit;
+        }
+        return $user;
+    }
+
     public static function requireTechOrAdmin(): array
     {
         $user = self::requireLogin();

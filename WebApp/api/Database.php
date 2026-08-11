@@ -6,6 +6,11 @@ final class Database
     public const ROLE_ADMIN = 'admin';
     public const ROLE_TECH = 'tech';
     public const ROLE_READ_ONLY = 'read_only';
+    public const SECTION_DASHBOARD = 'dashboard';
+    public const SECTION_REPORTS = 'reports';
+    public const SECTION_UPLOAD = 'upload';
+    public const SECTION_ALERTS = 'alerts';
+    public const SECTION_SETTINGS = 'settings';
 
     public static function fromConfig(): ?PDO
     {
@@ -115,11 +120,112 @@ final class Database
                     ON DELETE CASCADE
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
         );
+        $pdo->exec(
+            "CREATE TABLE IF NOT EXISTS role_permissions (
+                role VARCHAR(40) NOT NULL,
+                section_key VARCHAR(80) NOT NULL,
+                can_access TINYINT(1) NOT NULL DEFAULT 0,
+                updated_at DATETIME NOT NULL,
+                PRIMARY KEY (role, section_key),
+                INDEX idx_role_permissions_section (section_key)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+        );
+        $pdo->exec(
+            "CREATE TABLE IF NOT EXISTS api_schedules (
+                id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                job_key VARCHAR(80) NOT NULL,
+                job_name VARCHAR(160) NOT NULL,
+                scheduled_time CHAR(5) NOT NULL,
+                timezone VARCHAR(80) NOT NULL DEFAULT 'America/New_York',
+                is_active TINYINT(1) NOT NULL DEFAULT 1,
+                last_run_at DATETIME NULL,
+                last_status VARCHAR(40) NULL,
+                created_at DATETIME NOT NULL,
+                updated_at DATETIME NOT NULL,
+                UNIQUE KEY uq_api_schedule_time (job_key, scheduled_time),
+                INDEX idx_api_schedules_job (job_key)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+        );
+        $pdo->exec(
+            "CREATE TABLE IF NOT EXISTS api_logs (
+                id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                job_key VARCHAR(80) NOT NULL,
+                source VARCHAR(160) NOT NULL,
+                trigger_type VARCHAR(40) NOT NULL,
+                initiated_by_user_id INT UNSIGNED NULL,
+                initiated_by_name VARCHAR(160) NULL,
+                status VARCHAR(40) NOT NULL,
+                attempts INT UNSIGNED NOT NULL DEFAULT 0,
+                records_received INT UNSIGNED NOT NULL DEFAULT 0,
+                records_added INT UNSIGNED NOT NULL DEFAULT 0,
+                records_updated INT UNSIGNED NOT NULL DEFAULT 0,
+                records_skipped INT UNSIGNED NOT NULL DEFAULT 0,
+                duration_ms INT UNSIGNED NOT NULL DEFAULT 0,
+                error_message TEXT NULL,
+                started_at DATETIME NOT NULL,
+                completed_at DATETIME NULL,
+                INDEX idx_api_logs_started (started_at),
+                INDEX idx_api_logs_job (job_key),
+                INDEX idx_api_logs_status (status)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+        );
+        $pdo->exec(
+            "CREATE TABLE IF NOT EXISTS api_locks (
+                lock_key VARCHAR(80) PRIMARY KEY,
+                locked_at DATETIME NOT NULL,
+                locked_by VARCHAR(160) NOT NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+        );
         $pdo->exec("ALTER TABLE reports ADD COLUMN IF NOT EXISTS current_upload_id INT UNSIGNED NULL");
         $pdo->exec("ALTER TABLE reports ADD COLUMN IF NOT EXISTS previous_upload_id INT UNSIGNED NULL");
         self::addColumnIfMissing($pdo, 'users', 'two_factor_secret', 'VARCHAR(64) NULL');
         self::addColumnIfMissing($pdo, 'users', 'two_factor_enabled', 'TINYINT(1) NOT NULL DEFAULT 0');
         self::addColumnIfMissing($pdo, 'users', 'two_factor_confirmed_at', 'DATETIME NULL');
+        self::seedRolePermissions($pdo);
+        self::seedApiSchedules($pdo);
+    }
+
+    public static function navigationSections(): array
+    {
+        return [
+            ['key' => self::SECTION_DASHBOARD, 'label' => 'Dashboard'],
+            ['key' => self::SECTION_REPORTS, 'label' => 'View Reports'],
+            ['key' => self::SECTION_UPLOAD, 'label' => 'Upload CSV'],
+            ['key' => self::SECTION_ALERTS, 'label' => 'Alerts'],
+            ['key' => self::SECTION_SETTINGS, 'label' => 'Settings'],
+        ];
+    }
+
+    public static function roles(): array
+    {
+        return [self::ROLE_ADMIN, self::ROLE_TECH, self::ROLE_READ_ONLY];
+    }
+
+    public static function defaultRolePermissions(): array
+    {
+        return [
+            self::ROLE_ADMIN => [
+                self::SECTION_DASHBOARD => true,
+                self::SECTION_REPORTS => true,
+                self::SECTION_UPLOAD => true,
+                self::SECTION_ALERTS => true,
+                self::SECTION_SETTINGS => true,
+            ],
+            self::ROLE_TECH => [
+                self::SECTION_DASHBOARD => true,
+                self::SECTION_REPORTS => true,
+                self::SECTION_UPLOAD => true,
+                self::SECTION_ALERTS => true,
+                self::SECTION_SETTINGS => false,
+            ],
+            self::ROLE_READ_ONLY => [
+                self::SECTION_DASHBOARD => true,
+                self::SECTION_REPORTS => true,
+                self::SECTION_UPLOAD => false,
+                self::SECTION_ALERTS => true,
+                self::SECTION_SETTINGS => false,
+            ],
+        ];
     }
 
     public static function saveCsvUpload(PDO $pdo, string $filename, string $role, array $rows): int
@@ -373,6 +479,216 @@ final class Database
         ], $statement->fetchAll());
     }
 
+    public static function listRolePermissions(PDO $pdo): array
+    {
+        self::initialize($pdo);
+        $statement = $pdo->query("SELECT role, section_key, can_access FROM role_permissions");
+        $permissions = self::defaultRolePermissions();
+        foreach ($statement->fetchAll() as $row) {
+            $role = self::normalizeRole((string)$row['role']);
+            $section = (string)$row['section_key'];
+            if (isset($permissions[$role])) {
+                $permissions[$role][$section] = (bool)$row['can_access'];
+            }
+        }
+        return $permissions;
+    }
+
+    public static function setRolePermissions(PDO $pdo, string $role, array $permissions): void
+    {
+        self::initialize($pdo);
+        $role = self::normalizeRole($role);
+        if ($role === self::ROLE_ADMIN && empty($permissions[self::SECTION_SETTINGS])) {
+            throw new RuntimeException('The Admin role must keep Settings access.');
+        }
+        if ($role === self::ROLE_ADMIN && self::activeAdminCount($pdo) < 1) {
+            throw new RuntimeException('At least one active admin is required.');
+        }
+
+        $sections = array_column(self::navigationSections(), 'key');
+        $statement = $pdo->prepare(
+            "INSERT INTO role_permissions (role, section_key, can_access, updated_at)
+             VALUES (:role, :section_key, :can_access, :updated_at)
+             ON DUPLICATE KEY UPDATE can_access = VALUES(can_access), updated_at = VALUES(updated_at)"
+        );
+        $now = date('Y-m-d H:i:s');
+        foreach ($sections as $section) {
+            $canAccess = !empty($permissions[$section]);
+            if ($role === self::ROLE_ADMIN && $section === self::SECTION_SETTINGS) {
+                $canAccess = true;
+            }
+            $statement->execute([
+                ':role' => $role,
+                ':section_key' => $section,
+                ':can_access' => $canAccess ? 1 : 0,
+                ':updated_at' => $now,
+            ]);
+        }
+    }
+
+    public static function userCanAccessSection(PDO $pdo, array $user, string $section): bool
+    {
+        self::initialize($pdo);
+        $role = self::normalizeRole((string)($user['role'] ?? ''));
+        $statement = $pdo->prepare(
+            "SELECT can_access FROM role_permissions WHERE role = :role AND section_key = :section_key LIMIT 1"
+        );
+        $statement->execute([':role' => $role, ':section_key' => $section]);
+        $value = $statement->fetchColumn();
+        if ($value === false) {
+            $defaults = self::defaultRolePermissions();
+            return !empty($defaults[$role][$section]);
+        }
+        return (bool)$value;
+    }
+
+    public static function listApiSchedules(PDO $pdo): array
+    {
+        self::initialize($pdo);
+        $statement = $pdo->query(
+            "SELECT id, job_key, job_name, scheduled_time, timezone, is_active, last_run_at, last_status
+             FROM api_schedules
+             WHERE job_key = 'qu_ei_terminals_csv'
+             ORDER BY scheduled_time ASC"
+        );
+        return array_map([self::class, 'apiScheduleRow'], $statement->fetchAll());
+    }
+
+    public static function addApiSchedule(PDO $pdo, string $time): void
+    {
+        self::initialize($pdo);
+        $time = self::validateScheduleTime($time);
+        $now = date('Y-m-d H:i:s');
+        $statement = $pdo->prepare(
+            "INSERT INTO api_schedules (job_key, job_name, scheduled_time, timezone, is_active, created_at, updated_at)
+             VALUES ('qu_ei_terminals_csv', 'QU EI Terminals CSV', :scheduled_time, 'America/New_York', 1, :created_at, :updated_at)"
+        );
+        try {
+            $statement->execute([':scheduled_time' => $time, ':created_at' => $now, ':updated_at' => $now]);
+        } catch (PDOException $exception) {
+            if ($exception->getCode() === '23000') {
+                throw new RuntimeException('That scheduled time already exists.');
+            }
+            throw $exception;
+        }
+    }
+
+    public static function updateApiSchedule(PDO $pdo, int $id, string $time): void
+    {
+        self::initialize($pdo);
+        if ($id <= 0) {
+            throw new RuntimeException('Invalid schedule ID.');
+        }
+        $time = self::validateScheduleTime($time);
+        $statement = $pdo->prepare("UPDATE api_schedules SET scheduled_time = :scheduled_time, updated_at = :updated_at WHERE id = :id");
+        try {
+            $statement->execute([':id' => $id, ':scheduled_time' => $time, ':updated_at' => date('Y-m-d H:i:s')]);
+        } catch (PDOException $exception) {
+            if ($exception->getCode() === '23000') {
+                throw new RuntimeException('That scheduled time already exists.');
+            }
+            throw $exception;
+        }
+    }
+
+    public static function listApiLogs(PDO $pdo, int $limit = 100): array
+    {
+        self::initialize($pdo);
+        $limit = max(1, min(250, $limit));
+        $statement = $pdo->query(
+            "SELECT id, job_key, source, trigger_type, initiated_by_name, status, attempts,
+                    records_received, records_added, records_updated, records_skipped,
+                    duration_ms, error_message, started_at, completed_at
+             FROM api_logs
+             ORDER BY started_at DESC, id DESC
+             LIMIT $limit"
+        );
+        return array_map([self::class, 'apiLogRow'], $statement->fetchAll());
+    }
+
+    public static function startApiLog(PDO $pdo, string $triggerType, ?array $user = null, int $attempts = 1): int
+    {
+        self::initialize($pdo);
+        $statement = $pdo->prepare(
+            "INSERT INTO api_logs (
+                job_key, source, trigger_type, initiated_by_user_id, initiated_by_name,
+                status, attempts, started_at
+             ) VALUES (
+                'qu_ei_terminals_csv', 'QU EI Admin Terminals CSV', :trigger_type, :user_id, :user_name,
+                'In Progress', :attempts, :started_at
+             )"
+        );
+        $statement->execute([
+            ':trigger_type' => $triggerType,
+            ':user_id' => $user['id'] ?? null,
+            ':user_name' => $user['displayName'] ?? null,
+            ':attempts' => $attempts,
+            ':started_at' => date('Y-m-d H:i:s'),
+        ]);
+        return (int)$pdo->lastInsertId();
+    }
+
+    public static function finishApiLog(PDO $pdo, int $id, string $status, array $stats = []): void
+    {
+        self::initialize($pdo);
+        $statement = $pdo->prepare(
+            "UPDATE api_logs
+             SET status = :status,
+                 attempts = :attempts,
+                 records_received = :records_received,
+                 records_added = :records_added,
+                 records_updated = :records_updated,
+                 records_skipped = :records_skipped,
+                 duration_ms = :duration_ms,
+                 error_message = :error_message,
+                 completed_at = :completed_at
+             WHERE id = :id"
+        );
+        $statement->execute([
+            ':id' => $id,
+            ':status' => $status,
+            ':attempts' => (int)($stats['attempts'] ?? 1),
+            ':records_received' => (int)($stats['recordsReceived'] ?? 0),
+            ':records_added' => (int)($stats['recordsAdded'] ?? 0),
+            ':records_updated' => (int)($stats['recordsUpdated'] ?? 0),
+            ':records_skipped' => (int)($stats['recordsSkipped'] ?? 0),
+            ':duration_ms' => (int)($stats['durationMs'] ?? 0),
+            ':error_message' => $stats['errorMessage'] ?? null,
+            ':completed_at' => date('Y-m-d H:i:s'),
+        ]);
+        $pdo->prepare(
+            "UPDATE api_schedules SET last_run_at = :last_run_at, last_status = :last_status, updated_at = :updated_at WHERE job_key = 'qu_ei_terminals_csv'"
+        )->execute([
+            ':last_run_at' => date('Y-m-d H:i:s'),
+            ':last_status' => $status,
+            ':updated_at' => date('Y-m-d H:i:s'),
+        ]);
+    }
+
+    public static function acquireApiLock(PDO $pdo, string $lockKey, string $lockedBy): bool
+    {
+        self::initialize($pdo);
+        $statement = $pdo->prepare("DELETE FROM api_locks WHERE lock_key = :lock_key AND locked_at < DATE_SUB(NOW(), INTERVAL 30 MINUTE)");
+        $statement->execute([':lock_key' => $lockKey]);
+        $statement = $pdo->prepare("INSERT INTO api_locks (lock_key, locked_at, locked_by) VALUES (:lock_key, :locked_at, :locked_by)");
+        try {
+            $statement->execute([':lock_key' => $lockKey, ':locked_at' => date('Y-m-d H:i:s'), ':locked_by' => $lockedBy]);
+            return true;
+        } catch (PDOException $exception) {
+            if ($exception->getCode() === '23000') {
+                return false;
+            }
+            throw $exception;
+        }
+    }
+
+    public static function releaseApiLock(PDO $pdo, string $lockKey): void
+    {
+        self::initialize($pdo);
+        $statement = $pdo->prepare("DELETE FROM api_locks WHERE lock_key = :lock_key");
+        $statement->execute([':lock_key' => $lockKey]);
+    }
+
     public static function setUserActive(PDO $pdo, int $id, bool $isActive, ?int $actingUserId = null): void
     {
         self::initialize($pdo);
@@ -572,6 +888,101 @@ final class Database
         $statement = $pdo->prepare("SELECT COUNT(*) FROM users WHERE role = :role AND is_active = 1");
         $statement->execute([':role' => self::ROLE_ADMIN]);
         return (int)$statement->fetchColumn();
+    }
+
+    private static function seedRolePermissions(PDO $pdo): void
+    {
+        $statement = $pdo->prepare(
+            "INSERT IGNORE INTO role_permissions (role, section_key, can_access, updated_at)
+             VALUES (:role, :section_key, :can_access, :updated_at)"
+        );
+        $now = date('Y-m-d H:i:s');
+        foreach (self::defaultRolePermissions() as $role => $sections) {
+            foreach ($sections as $section => $canAccess) {
+                $statement->execute([
+                    ':role' => $role,
+                    ':section_key' => $section,
+                    ':can_access' => $canAccess ? 1 : 0,
+                    ':updated_at' => $now,
+                ]);
+            }
+        }
+    }
+
+    private static function seedApiSchedules(PDO $pdo): void
+    {
+        $statement = $pdo->prepare(
+            "INSERT IGNORE INTO api_schedules (job_key, job_name, scheduled_time, timezone, is_active, created_at, updated_at)
+             VALUES ('qu_ei_terminals_csv', 'QU EI Terminals CSV', :scheduled_time, 'America/New_York', 1, :created_at, :updated_at)"
+        );
+        $now = date('Y-m-d H:i:s');
+        foreach (['08:00', '14:00'] as $time) {
+            $statement->execute([':scheduled_time' => $time, ':created_at' => $now, ':updated_at' => $now]);
+        }
+    }
+
+    private static function validateScheduleTime(string $time): string
+    {
+        $time = trim($time);
+        if (!preg_match('/^([01]\d|2[0-3]):([0-5]\d)$/', $time)) {
+            throw new RuntimeException('Enter a valid time in HH:MM format.');
+        }
+        return $time;
+    }
+
+    private static function apiScheduleRow(array $row): array
+    {
+        return [
+            'id' => (int)$row['id'],
+            'jobKey' => $row['job_key'],
+            'jobName' => $row['job_name'],
+            'scheduledTime' => $row['scheduled_time'],
+            'displayTime' => self::displayEasternTime((string)$row['scheduled_time']),
+            'timezone' => $row['timezone'],
+            'isActive' => (bool)$row['is_active'],
+            'lastRunAt' => $row['last_run_at'] ? date('c', strtotime($row['last_run_at'])) : null,
+            'nextRunAt' => self::nextRunAt((string)$row['scheduled_time'], (string)$row['timezone']),
+            'lastStatus' => $row['last_status'] ?: 'Not Run Yet',
+        ];
+    }
+
+    private static function apiLogRow(array $row): array
+    {
+        return [
+            'id' => (int)$row['id'],
+            'jobKey' => $row['job_key'],
+            'source' => $row['source'],
+            'triggerType' => $row['trigger_type'],
+            'initiatedBy' => $row['initiated_by_name'],
+            'status' => $row['status'],
+            'attempts' => (int)$row['attempts'],
+            'recordsReceived' => (int)$row['records_received'],
+            'recordsAdded' => (int)$row['records_added'],
+            'recordsUpdated' => (int)$row['records_updated'],
+            'recordsSkipped' => (int)$row['records_skipped'],
+            'durationMs' => (int)$row['duration_ms'],
+            'errorMessage' => $row['error_message'],
+            'startedAt' => date('c', strtotime($row['started_at'])),
+            'completedAt' => $row['completed_at'] ? date('c', strtotime($row['completed_at'])) : null,
+        ];
+    }
+
+    private static function displayEasternTime(string $time): string
+    {
+        $date = DateTime::createFromFormat('H:i', $time, new DateTimeZone('America/New_York'));
+        return $date ? $date->format('g:i A') . ' ET' : $time;
+    }
+
+    private static function nextRunAt(string $time, string $timezone): string
+    {
+        $zone = new DateTimeZone($timezone ?: 'America/New_York');
+        $now = new DateTimeImmutable('now', $zone);
+        [$hour, $minute] = array_map('intval', explode(':', $time));
+        $next = $now->setTime($hour, $minute);
+        if ($next <= $now) {
+            $next = $next->modify('+1 day');
+        }
+        return $next->format(DateTimeInterface::ATOM);
     }
 
     private static function addColumnIfMissing(PDO $pdo, string $table, string $column, string $definition): void

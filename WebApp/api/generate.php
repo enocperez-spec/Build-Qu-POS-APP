@@ -8,8 +8,6 @@ require_once __DIR__ . '/AuthService.php';
 header('Content-Type: application/json');
 
 try {
-    Auth::requireTechOrAdmin();
-
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         http_response_code(405);
         echo json_encode(['ok' => false, 'error' => 'Use POST to generate a report.']);
@@ -24,6 +22,7 @@ try {
     if (!$pdo) {
         throw new RuntimeException('Database configuration is required for CSV uploads.');
     }
+    Auth::requireSection($pdo, Database::SECTION_UPLOAD);
     $result = ReportService::generate($_FILES['currentCsv'], null, dirname(__DIR__), $pdo);
     Database::saveReport($pdo, $result);
     $result['databaseSaved'] = true;

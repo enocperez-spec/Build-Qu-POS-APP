@@ -9,6 +9,7 @@ const state = {
     uploads: [],
     selectedUploadId: "",
     activeTab: "current",
+    settingsTab: "users",
     currentPage: "dashboard",
     releaseNotesReturnPage: "dashboard",
 };
@@ -214,6 +215,14 @@ const FEATURE_RELEASES = [
         type: "Improvement",
         status: "Released",
     },
+    {
+        version: "v003.06",
+        releasedAt: "2026-08-11 18:38:00 -04:00",
+        title: "Admin Settings And Role-Based Navigation Management",
+        description: "Added an Admin-only Settings section containing Users, User Roles, API Logs, and API Call Times. Added editable role permissions, QU EI schedule management, and automatic permission registration for navigation sections.",
+        type: "Feature",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
@@ -260,7 +269,21 @@ function canManageUsers() {
 }
 
 function canGenerateReports() {
-    return ["admin", "tech"].includes(state.user?.role);
+    return canAccess("upload") && ["admin", "tech"].includes(state.user?.role);
+}
+
+function canAccess(section) {
+    if (!state.user) return false;
+    if (state.user.role === "admin") return true;
+    const fallback = {
+        tech: { dashboard: true, reports: true, upload: true, alerts: true, settings: false },
+        read_only: { dashboard: true, reports: true, upload: false, alerts: true, settings: false },
+    };
+    return !!(state.user.permissions?.[section] ?? fallback[state.user.role]?.[section]);
+}
+
+function canManageSettings() {
+    return state.user?.role === "admin" && canAccess("settings");
 }
 
 function roleLabel(role) {
@@ -284,17 +307,17 @@ function navClass(page) {
 
 function shell(content, page = state.currentPage || "dashboard") {
     state.currentPage = page;
-    const adminNav = canManageUsers() ? `<button class="${navClass("users")}" id="usersNavBtn">Users</button>` : "";
-    const uploadNav = canGenerateReports() ? `<button class="${navClass("upload")}" id="uploadNavBtn">Upload CSV</button>` : "";
+    const uploadNav = canAccess("upload") ? `<button class="${navClass("upload")}" id="uploadNavBtn">Upload CSV</button>` : "";
+    const settingsNav = canManageSettings() ? `<button class="${navClass("settings")}" id="settingsNavBtn">Settings</button>` : "";
     return `
         <div class="app-shell">
             <aside class="sidebar">
                 <img class="brand-logo" src="assets/goto-foods-white-logo.png" alt="GoTo Foods">
-                <button class="${navClass("dashboard")}" id="dashboardNavBtn">Dashboard</button>
-                <button class="${navClass("reports")}" id="reportsNavBtn">View Reports</button>
+                ${canAccess("dashboard") ? `<button class="${navClass("dashboard")}" id="dashboardNavBtn">Dashboard</button>` : ""}
+                ${canAccess("reports") ? `<button class="${navClass("reports")}" id="reportsNavBtn">View Reports</button>` : ""}
                 ${uploadNav}
-                <button class="${navClass("alerts")}" id="alertsNavBtn">Alerts</button>
-                ${adminNav}
+                ${canAccess("alerts") ? `<button class="${navClass("alerts")}" id="alertsNavBtn">Alerts</button>` : ""}
+                ${settingsNav}
             </aside>
             <main class="main">${content}${footer()}</main>
         </div>`;
@@ -450,6 +473,14 @@ async function boot() {
     renderHome();
 }
 
+async function refreshAuthStatus() {
+    const response = await fetch("api/auth.php?action=status");
+    const payload = await response.json();
+    if (payload.ok && payload.user) {
+        state.user = payload.user;
+    }
+}
+
 function renderAuth() {
     const setup = state.needsSetup;
     app.innerHTML = `
@@ -567,6 +598,7 @@ async function submitAuth(event) {
             return;
         }
         state.user = payload.user;
+        await refreshAuthStatus();
         state.needsSetup = false;
         renderHome();
     } catch (error) {
@@ -587,6 +619,7 @@ async function submitTwoFactor(event) {
         const payload = await response.json();
         if (!payload.ok) throw new Error(payload.error || "Two-factor verification failed.");
         state.user = payload.user;
+        await refreshAuthStatus();
         state.needsSetup = false;
         state.pendingTwoFactor = null;
         renderHome();
@@ -601,7 +634,7 @@ function bindShell() {
     document.getElementById("dashboardNavBtn")?.addEventListener("click", renderHome);
     document.getElementById("uploadNavBtn")?.addEventListener("click", renderUploadPage);
     document.getElementById("alertsNavBtn")?.addEventListener("click", renderAlertsPage);
-    document.getElementById("usersNavBtn")?.addEventListener("click", renderUsers);
+    document.getElementById("settingsNavBtn")?.addEventListener("click", () => renderSettings("users"));
     bindFooter();
 }
 
@@ -825,7 +858,7 @@ function renderReleaseNotes(returnPage = state.currentPage || "dashboard") {
             </div>
             <button class="btn back-btn" id="backToApplicationBtn" type="button">Back to Application</button>
             <div class="release-rules">
-                Version sequence: v001.01 through v001.09, then v002.00 through v002.09, then v003.00, v003.01, v003.02, v003.03, v003.04, v003.05, and so on.
+                Version sequence: v001.01 through v001.09, then v002.00 through v002.09, then v003.00, v003.01, v003.02, v003.03, v003.04, v003.05, v003.06, and so on.
             </div>
             <div class="release-list">
                 ${FEATURE_RELEASES.slice().reverse().map(release => `
@@ -859,21 +892,77 @@ function navigateToPage(page) {
         renderAlertsPage();
         return;
     }
-    if (page === "users") {
-        renderUsers();
+    if (page === "settings" || page === "users") {
+        renderSettings(state.settingsTab || "users");
         return;
     }
     renderHome();
 }
 
 async function renderUsers() {
+    renderSettings("users");
+}
+
+function settingsTabs(activeTab) {
+    const tabs = [
+        ["users", "Users"],
+        ["roles", "User Roles"],
+        ["apiLogs", "API Logs"],
+        ["apiTimes", "API Call Times"],
+    ];
+    return `
+        <section class="panel settings-panel">
+            <div class="settings-heading">
+                <div>
+                    <h2>Settings</h2>
+                    <p class="subtle">Admin tools for users, permissions, QU EI schedules, and retrieval logs.</p>
+                </div>
+            </div>
+            <div class="tabs settings-tabs">
+                ${tabs.map(([key, label]) => `<button class="tab-btn ${activeTab === key ? "active" : ""}" data-settings-tab="${key}">${label}</button>`).join("")}
+            </div>
+            <div id="settingsContent"></div>
+        </section>`;
+}
+
+async function renderSettings(tab = "users") {
     if (!canManageUsers()) {
         renderHome();
         return;
     }
-    state.currentPage = "users";
-    const mountHtml = shell(header() + `
-        <section class="panel" style="padding:20px;">
+    state.currentPage = "settings";
+    state.settingsTab = tab;
+    app.innerHTML = shell(header() + settingsTabs(tab), "settings");
+    bindShell();
+    document.querySelectorAll("button[data-settings-tab]").forEach(button => {
+        button.addEventListener("click", () => renderSettings(button.dataset.settingsTab));
+    });
+    const content = document.getElementById("settingsContent");
+    if (tab === "roles") {
+        content.innerHTML = `<div class="empty">Loading role permissions...</div>`;
+        await loadRolePermissions();
+        return;
+    }
+    if (tab === "apiLogs") {
+        content.innerHTML = apiLogsPanel();
+        bindApiLogs();
+        await loadApiLogs();
+        return;
+    }
+    if (tab === "apiTimes") {
+        content.innerHTML = apiTimesPanel();
+        bindApiTimes();
+        await loadApiSchedules();
+        return;
+    }
+    content.innerHTML = userManagementPanel();
+    document.getElementById("createUserForm").addEventListener("submit", createUser);
+    await loadUsers();
+}
+
+function userManagementPanel() {
+    return `
+        <div class="settings-tab-panel">
             <h2>User Management</h2>
             <form id="createUserForm" class="user-form">
                 <input class="text-input" id="newUserName" placeholder="Display name" required>
@@ -888,11 +977,210 @@ async function renderUsers() {
             </form>
             <div id="usersMessage" class="status-message"></div>
             <div id="usersList" class="report-list"></div>
-        </section>`, "users");
-    app.innerHTML = mountHtml;
-    bindShell();
-    document.getElementById("createUserForm").addEventListener("submit", createUser);
-    await loadUsers();
+        </div>`;
+}
+
+async function loadRolePermissions() {
+    const content = document.getElementById("settingsContent");
+    const response = await fetch("api/settings.php?action=permissions");
+    const payload = await parseJsonResponse(response);
+    if (!payload.ok) {
+        content.innerHTML = `<div class="empty">${escapeHtml(payload.error)}</div>`;
+        return;
+    }
+    content.innerHTML = `
+        <div class="settings-tab-panel">
+            <h2>User Roles</h2>
+            <p class="subtle">Choose which navigation sections each role can see and open. Admin keeps Settings access by design.</p>
+            <div id="rolesMessage" class="status-message"></div>
+            <div class="permission-grid">
+                ${payload.roles.map(role => `
+                    <form class="permission-card" data-role="${escapeHtml(role.key)}">
+                        <h3>${escapeHtml(role.label)}</h3>
+                        ${payload.sections.map(section => {
+                            const checked = payload.permissions?.[role.key]?.[section.key] ? "checked" : "";
+                            const disabled = role.key === "admin" && section.key === "settings" ? "disabled" : "";
+                            return `
+                                <label class="permission-row">
+                                    <input type="checkbox" name="${escapeHtml(section.key)}" ${checked} ${disabled}>
+                                    <span>${escapeHtml(section.label)}</span>
+                                </label>`;
+                        }).join("")}
+                        <button class="btn primary" type="submit">Save ${escapeHtml(role.label)}</button>
+                    </form>
+                `).join("")}
+            </div>
+        </div>`;
+    document.querySelectorAll(".permission-card").forEach(form => {
+        form.addEventListener("submit", saveRolePermissions);
+    });
+}
+
+async function saveRolePermissions(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const role = form.dataset.role;
+    const permissions = {};
+    form.querySelectorAll("input[type='checkbox']").forEach(input => {
+        permissions[input.name] = input.checked || input.disabled;
+    });
+    const message = document.getElementById("rolesMessage");
+    message.textContent = "Saving permissions...";
+    const response = await fetch("api/settings.php?action=save-permissions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role, permissions }),
+    });
+    const payload = await parseJsonResponse(response);
+    if (!payload.ok) {
+        message.textContent = payload.error || "Could not save permissions.";
+        message.className = "status-message error-message";
+        return;
+    }
+    await refreshAuthStatus();
+    message.textContent = "Permissions saved.";
+    message.className = "status-message success-message";
+}
+
+function apiLogsPanel() {
+    return `
+        <div class="settings-tab-panel">
+            <div class="settings-actions-heading">
+                <div>
+                    <h2>API Logs</h2>
+                    <p class="subtle">Newest QU EI terminal retrieval activity appears first.</p>
+                </div>
+                <button class="btn primary" id="retrieveDataBtn" type="button">Retrieve Data</button>
+            </div>
+            <div id="apiLogsMessage" class="status-message"></div>
+            <div id="apiLogsList"></div>
+        </div>`;
+}
+
+function bindApiLogs() {
+    document.getElementById("retrieveDataBtn")?.addEventListener("click", retrieveDataNow);
+}
+
+async function loadApiLogs() {
+    const list = document.getElementById("apiLogsList");
+    const response = await fetch("api/settings.php?action=api-logs");
+    const payload = await parseJsonResponse(response);
+    if (!payload.ok) {
+        list.innerHTML = `<div class="empty">${escapeHtml(payload.error)}</div>`;
+        return;
+    }
+    list.innerHTML = simpleTable([
+        "Date And Time", "Source", "Trigger", "User", "Status", "Attempts", "Received", "Added", "Updated", "Skipped", "Duration", "Error"
+    ], payload.logs.map(log => [
+        new Date(log.startedAt).toLocaleString(),
+        escapeHtml(log.source),
+        escapeHtml(log.triggerType),
+        escapeHtml(log.initiatedBy || "System"),
+        `<span class="status-pill ${escapeHtml(String(log.status).toLowerCase().replaceAll(" ", "-"))}">${escapeHtml(log.status)}</span>`,
+        log.attempts,
+        log.recordsReceived,
+        log.recordsAdded,
+        log.recordsUpdated,
+        log.recordsSkipped,
+        `${log.durationMs} ms`,
+        escapeHtml(log.errorMessage || "")
+    ]));
+}
+
+async function retrieveDataNow() {
+    const button = document.getElementById("retrieveDataBtn");
+    const message = document.getElementById("apiLogsMessage");
+    button.disabled = true;
+    message.textContent = "Starting manual retrieval...";
+    try {
+        const response = await fetch("api/settings.php?action=retrieve-data", { method: "POST" });
+        const payload = await parseJsonResponse(response);
+        if (!payload.ok) throw new Error(payload.error || "Could not retrieve data.");
+        message.textContent = payload.message || "Manual retrieval started.";
+        message.className = "status-message success-message";
+        await loadApiLogs();
+    } catch (error) {
+        message.textContent = error.message;
+        message.className = "status-message error-message";
+    } finally {
+        button.disabled = false;
+    }
+}
+
+function apiTimesPanel() {
+    return `
+        <div class="settings-tab-panel">
+            <div class="settings-actions-heading">
+                <div>
+                    <h2>API Call Times</h2>
+                    <p class="subtle">Manage the QU EI Terminals CSV schedule in America/New_York time.</p>
+                </div>
+                <form id="addScheduleForm" class="inline-form">
+                    <input class="text-input" id="newScheduleTime" type="time" required>
+                    <button class="btn primary" type="submit">Add Time</button>
+                </form>
+            </div>
+            <div id="apiTimesMessage" class="status-message"></div>
+            <div id="apiTimesList"></div>
+        </div>`;
+}
+
+function bindApiTimes() {
+    document.getElementById("addScheduleForm")?.addEventListener("submit", addScheduleTime);
+}
+
+async function loadApiSchedules() {
+    const list = document.getElementById("apiTimesList");
+    const response = await fetch("api/settings.php?action=schedules");
+    const payload = await parseJsonResponse(response);
+    if (!payload.ok) {
+        list.innerHTML = `<div class="empty">${escapeHtml(payload.error)}</div>`;
+        return;
+    }
+    list.innerHTML = simpleTable([
+        "API Job Name", "Scheduled Time", "Timezone", "Last Run", "Next Scheduled Run", "Current Status", "Available Actions"
+    ], payload.schedules.map(schedule => [
+        escapeHtml(schedule.jobName),
+        `<input class="text-input schedule-time-input" type="time" value="${escapeHtml(schedule.scheduledTime)}" data-schedule-id="${escapeHtml(schedule.id)}">`,
+        escapeHtml(schedule.timezone),
+        schedule.lastRunAt ? new Date(schedule.lastRunAt).toLocaleString() : "Not run yet",
+        schedule.nextRunAt ? new Date(schedule.nextRunAt).toLocaleString() : "",
+        escapeHtml(schedule.lastStatus),
+        `<button class="btn" data-save-schedule="${escapeHtml(schedule.id)}" type="button">Edit</button>`
+    ]));
+    document.querySelectorAll("button[data-save-schedule]").forEach(button => {
+        button.addEventListener("click", () => updateScheduleTime(button.dataset.saveSchedule));
+    });
+}
+
+async function addScheduleTime(event) {
+    event.preventDefault();
+    await saveSchedule("api/settings.php?action=add-schedule", document.getElementById("newScheduleTime").value);
+    event.target.reset();
+}
+
+async function updateScheduleTime(id) {
+    const value = document.querySelector(`input[data-schedule-id="${CSS.escape(String(id))}"]`)?.value || "";
+    await saveSchedule("api/settings.php?action=update-schedule", value, id);
+}
+
+async function saveSchedule(url, scheduledTime, id = null) {
+    const message = document.getElementById("apiTimesMessage");
+    message.textContent = "Saving schedule...";
+    const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, scheduledTime }),
+    });
+    const payload = await parseJsonResponse(response);
+    if (!payload.ok) {
+        message.textContent = payload.error || "Could not save schedule.";
+        message.className = "status-message error-message";
+        return;
+    }
+    message.textContent = "Schedule saved.";
+    message.className = "status-message success-message";
+    await loadApiSchedules();
 }
 
 async function loadUsers() {

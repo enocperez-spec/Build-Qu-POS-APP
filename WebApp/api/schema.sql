@@ -68,3 +68,55 @@ CREATE TABLE IF NOT EXISTS terminal_rows (
         FOREIGN KEY (upload_id) REFERENCES csv_uploads(id)
         ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS role_permissions (
+    role VARCHAR(40) NOT NULL,
+    section_key VARCHAR(80) NOT NULL,
+    can_access TINYINT(1) NOT NULL DEFAULT 0,
+    updated_at DATETIME NOT NULL,
+    PRIMARY KEY (role, section_key),
+    INDEX idx_role_permissions_section (section_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS api_schedules (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    job_key VARCHAR(80) NOT NULL,
+    job_name VARCHAR(160) NOT NULL,
+    scheduled_time CHAR(5) NOT NULL,
+    timezone VARCHAR(80) NOT NULL DEFAULT 'America/New_York',
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
+    last_run_at DATETIME NULL,
+    last_status VARCHAR(40) NULL,
+    created_at DATETIME NOT NULL,
+    updated_at DATETIME NOT NULL,
+    UNIQUE KEY uq_api_schedule_time (job_key, scheduled_time),
+    INDEX idx_api_schedules_job (job_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS api_logs (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    job_key VARCHAR(80) NOT NULL,
+    source VARCHAR(160) NOT NULL,
+    trigger_type VARCHAR(40) NOT NULL,
+    initiated_by_user_id INT UNSIGNED NULL,
+    initiated_by_name VARCHAR(160) NULL,
+    status VARCHAR(40) NOT NULL,
+    attempts INT UNSIGNED NOT NULL DEFAULT 0,
+    records_received INT UNSIGNED NOT NULL DEFAULT 0,
+    records_added INT UNSIGNED NOT NULL DEFAULT 0,
+    records_updated INT UNSIGNED NOT NULL DEFAULT 0,
+    records_skipped INT UNSIGNED NOT NULL DEFAULT 0,
+    duration_ms INT UNSIGNED NOT NULL DEFAULT 0,
+    error_message TEXT NULL,
+    started_at DATETIME NOT NULL,
+    completed_at DATETIME NULL,
+    INDEX idx_api_logs_started (started_at),
+    INDEX idx_api_logs_job (job_key),
+    INDEX idx_api_logs_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS api_locks (
+    lock_key VARCHAR(80) PRIMARY KEY,
+    locked_at DATETIME NOT NULL,
+    locked_by VARCHAR(160) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

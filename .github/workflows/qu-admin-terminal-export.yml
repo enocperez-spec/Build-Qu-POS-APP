@@ -3,9 +3,9 @@ name: QU Admin Terminal Export
 on:
   workflow_dispatch:
   schedule:
-    # Runs every 6 hours starting at 4:00 AM America/New_York during daylight saving time.
-    # GitHub Actions schedules use UTC, so this maps to 4 AM, 10 AM, 4 PM, and 10 PM EDT.
-    - cron: "0 8,14,20,2 * * *"
+    # GitHub Actions schedules use UTC. These are the default 8 AM and 2 PM Eastern
+    # daylight-saving windows; editable app schedules are stored in the database.
+    - cron: "0 12,18 * * *"
 
 jobs:
   export-and-import:
@@ -39,6 +39,7 @@ jobs:
           QU_ADMIN_PASS: ${{ secrets.QU_ADMIN_PASS }}
           QU_APP_IMPORT_URL: https://quposapp.qupostech.com/api/cloud-import.php
           QU_APP_IMPORT_TOKEN: ${{ secrets.QU_APP_IMPORT_TOKEN }}
+          QU_TRIGGER_TYPE: ${{ github.event_name == 'workflow_dispatch' && 'Manual' || 'Scheduled' }}
           QU_EXPORT_ARTIFACT_DIR: artifacts
 
       - name: Upload failure diagnostics

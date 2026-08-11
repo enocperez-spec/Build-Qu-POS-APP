@@ -9,6 +9,7 @@ const settings = {
   quPassword: process.env.QU_ADMIN_PASS,
   importUrl: process.env.QU_APP_IMPORT_URL || 'https://quposapp.qupostech.com/api/cloud-import.php',
   importToken: process.env.QU_APP_IMPORT_TOKEN,
+  triggerType: process.env.QU_TRIGGER_TYPE || 'Scheduled',
   headless: String(process.env.QU_EXPORT_HEADLESS ?? 'true').toLowerCase() !== 'false',
   timeoutMs: Number(process.env.QU_EXPORT_TIMEOUT_MS || 90000),
   artifactDir: process.env.QU_EXPORT_ARTIFACT_DIR || path.resolve('artifacts'),
@@ -177,6 +178,8 @@ async function importIntoWebApp(csvPath) {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${required(settings.importToken, 'QU_APP_IMPORT_TOKEN')}`,
+      'X-QU-Trigger-Type': settings.triggerType,
+      'X-QU-Attempts': '1',
     },
     body: form,
   });

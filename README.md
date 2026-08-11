@@ -23,12 +23,14 @@ historical comparisons.
   type, and last-seen data.
 - Includes user login, two-factor authentication, and role-based access for
   admin, tech, and read-only users.
+- Includes an Admin-only Settings area for users, role permissions, QU EI API
+  logs, and configurable API call times.
 - Includes optional cloud automation templates for exporting terminals from QU
   Admin and importing the CSV into the web app.
 
 ## Release Notes
 
-The current application version is `v003.05`.
+The current application version is `v003.06`.
 
 Release history is tracked in [docs/FEATURE_RELEASES.md](docs/FEATURE_RELEASES.md).
 Every completed request receives the next version number and remains available

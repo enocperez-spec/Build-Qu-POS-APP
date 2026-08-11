@@ -16,9 +16,14 @@ try {
     $input = json_decode(file_get_contents('php://input') ?: '{}', true) ?: [];
 
     if ($action === 'status') {
+        $user = Auth::currentUser();
+        if ($user) {
+            $allPermissions = Database::listRolePermissions($pdo);
+            $user['permissions'] = $allPermissions[$user['role']] ?? [];
+        }
         echo json_encode([
             'ok' => true,
-            'user' => Auth::currentUser(),
+            'user' => $user,
             'needsSetup' => Database::userCount($pdo) === 0,
         ]);
         exit;
