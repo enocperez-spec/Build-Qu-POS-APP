@@ -23,6 +23,10 @@ foreach (['Strict-Transport-Security', 'Content-Security-Policy', 'X-Content-Typ
 securityExpect(str_contains($htaccess, "script-src 'self'"), 'CSP must prohibit inline and third-party scripts.');
 securityExpect(!str_contains($htaccess, "script-src 'self' 'unsafe-inline'"), 'CSP must not allow inline scripts.');
 securityExpect(str_contains($authSource, "'secure' => true"), 'Session cookies must always use the Secure flag.');
+securityExpect(str_contains($authSource, 'applyBrowserSecurityHeaders'), 'PHP must provide security headers when the host lacks mod_headers.');
+foreach (['Strict-Transport-Security', 'Content-Security-Policy', 'X-Content-Type-Options', 'X-Frame-Options', 'Referrer-Policy', 'Permissions-Policy'] as $header) {
+    securityExpect(str_contains($authSource, $header), "PHP header fallback is missing: $header");
+}
 securityExpect(str_contains($securitySource, 'FOR UPDATE'), 'Security counters must lock rows while incrementing.');
 securityExpect(str_contains($securitySource, 'INSERT IGNORE INTO login_rate_limits'), 'Rate-limit rows must be initialized atomically.');
 securityExpect(str_contains($appSource, 'tableCellHtml(cell)'), 'Table cells must pass through the safe renderer.');

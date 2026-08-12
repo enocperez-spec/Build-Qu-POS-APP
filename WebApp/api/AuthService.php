@@ -15,6 +15,7 @@ final class Auth
 
     public static function start(): void
     {
+        self::applyBrowserSecurityHeaders();
         if (session_status() === PHP_SESSION_NONE) {
             session_set_cookie_params([
                 'lifetime' => 0,
@@ -25,6 +26,17 @@ final class Auth
             ]);
             session_start();
         }
+    }
+
+    private static function applyBrowserSecurityHeaders(): void
+    {
+        if (headers_sent()) return;
+        header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
+        header("Content-Security-Policy: default-src 'self'; base-uri 'self'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; img-src 'self' data:; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; upgrade-insecure-requests");
+        header('X-Content-Type-Options: nosniff');
+        header('X-Frame-Options: DENY');
+        header('Referrer-Policy: no-referrer');
+        header('Permissions-Policy: camera=(), geolocation=(), microphone=()');
     }
 
     public static function currentUser(): ?array
