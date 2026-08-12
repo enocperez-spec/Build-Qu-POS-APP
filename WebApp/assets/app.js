@@ -360,6 +360,14 @@ const FEATURE_RELEASES = [
         type: "Improvement",
         status: "Released",
     },
+    {
+        version: "v005.04",
+        releasedAt: "2026-08-11 23:15:00 -04:00",
+        title: "Store Status Badge Color Polish",
+        description: "Updated store status badge colors so Live displays in green and Not Operational displays in gray for clearer visual separation.",
+        type: "Improvement",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;

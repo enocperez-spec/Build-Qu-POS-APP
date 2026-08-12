@@ -844,9 +844,9 @@ tr:hover td { background: rgba(35, 199, 255, .055); }
 }
 
 .store-status-badge.not-operational {
-    color: #ffd0d0;
-    background: rgba(255, 92, 92, .12);
-    border-color: rgba(255, 92, 92, .75);
+    color: #d7dde8;
+    background: rgba(148, 163, 184, .16);
+    border-color: rgba(148, 163, 184, .72);
 }
 
 .store-status-badge.unknown {
