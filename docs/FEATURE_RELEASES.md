@@ -1,6 +1,6 @@
 # Release Notes
 
-Current application version: `v005.00`
+Current application version: `v005.01`
 
 Version sequence: `v001.01` through `v001.09`, then `v002.00`, followed by
 `v002.00` through `v002.09`, then `v003.00` through `v003.09`, then `v004.00`
@@ -14,6 +14,7 @@ Newest releases are listed first.
 
 | Version | Release Date And Time | Type | Title | Description | Status |
 | --- | --- | --- | --- | --- | --- |
+| v005.01 | 2026-08-11 22:45:00 -04:00 | Improvement | Application Version Badge Colors | Applied the same stable, current, higher, and out-of-date version color coding used for QU POS to the Kiosk, QuBox, QuKDS, and QuORB version sections. | Released |
 | v005.00 | 2026-08-11 22:35:00 -04:00 | Improvement | Production POS Version Label | Changed the dashboard section title from Downloadable QU POS Versions to Downloadable Production Qu POS Version for clearer production reporting. | Released |
 | v004.09 | 2026-08-11 22:25:00 -04:00 | Improvement | Stable Version Adoption Dashboard | Updated the Kiosk, QuBox, QuKDS, and QuORB dashboard cards to display the current stable version and its usage percentage. The dashboard layout was also adjusted to display all seven metric cards in one row on standard desktop screens. | Released |
 | v004.08 | 2026-08-11 22:05:00 -04:00 | Improvement | Dashboard Metric Card Alignment | Improved dashboard metric card alignment so labels, icons, values, and metadata stay grouped inside each card, with long version numbers kept together. | Released |

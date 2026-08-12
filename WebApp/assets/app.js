@@ -336,6 +336,14 @@ const FEATURE_RELEASES = [
         type: "Improvement",
         status: "Released",
     },
+    {
+        version: "v005.01",
+        releasedAt: "2026-08-11 22:45:00 -04:00",
+        title: "Application Version Badge Colors",
+        description: "Applied the same stable, current, higher, and out-of-date version color coding used for QU POS to the Kiosk, QuBox, QuKDS, and QuORB version sections.",
+        type: "Improvement",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
@@ -351,13 +359,13 @@ function escapeHtml(value) {
         .replaceAll("'", "&#039;");
 }
 
-function versionStatus(version, report) {
-    const stable = report?.summary?.currentStableVersion;
-    const current = report?.summary?.mostCurrentVersion;
+function versionStatus(version, report, baseline = null) {
+    const stable = baseline?.stableVersion || report?.summary?.currentStableVersion;
+    const current = baseline?.currentVersion || report?.summary?.mostCurrentVersion;
     if (!version || !stable || stable === "N/A") return "neutral";
     if (version === stable) return "stable";
     if (version === current) return "current";
-    if (/^\d+\.\d+\.\d+\.\d+$/.test(version)) {
+    if (/^\d+(?:[.-]\d+)+$/.test(version)) {
         return compareVersions(version, stable) < 0 ? "outdated" : "higher";
     }
     return "neutral";
@@ -373,8 +381,30 @@ function compareVersions(a, b) {
     return 0;
 }
 
-function badge(version, report) {
-    return `<span class="badge ${versionStatus(version, report)}">${escapeHtml(version)}</span>`;
+function badge(version, report, baseline = null) {
+    return `<span class="badge ${versionStatus(version, report, baseline)}">${escapeHtml(version)}</span>`;
+}
+
+function versionBaseline(report, versions, appType = "pos") {
+    const stableByType = {
+        pos: report?.summary?.currentStableVersion,
+        kiosk: report?.summary?.kioskStableVersion,
+        qubox: report?.summary?.quboxStableVersion,
+        qukds: report?.summary?.qukdsStableVersion,
+        quorb: report?.summary?.quorbStableVersion,
+    };
+    return {
+        stableVersion: stableByType[appType] || "N/A",
+        currentVersion: mostCurrentVersion(versions),
+    };
+}
+
+function mostCurrentVersion(versions) {
+    return (versions || [])
+        .map(item => item.version)
+        .filter(version => /^\d+(?:[.-]\d+)+$/.test(version))
+        .sort(compareVersions)
+        .at(-1) || "N/A";
 }
 
 function canManageUsers() {
@@ -1589,35 +1619,36 @@ function tabContent(report, tab) {
 
 function currentTab(report) {
     return `
-        ${versionSection("Downloadable Production Qu POS Version", report.downloadableVersions, report, "pos-versions")}
+        ${versionSection("Downloadable Production Qu POS Version", report.downloadableVersions, report, "pos-versions", "pos")}
         ${outdatedSection(report)}
-        ${versionSection("Downloadable Kiosk Versions", report.kioskVersions, report, "kiosk-versions")}
-        ${versionSection("QuBox Versions", report.quboxVersions, report, "qubox-versions")}
-        ${versionSection("QuKDS Versions", report.qukdsVersions, report, "qukds-versions")}
-        ${versionSection("QuORB Versions", report.quorbVersions, report, "quorb-versions")}`;
+        ${versionSection("Downloadable Kiosk Versions", report.kioskVersions, report, "kiosk-versions", "kiosk")}
+        ${versionSection("QuBox Versions", report.quboxVersions, report, "qubox-versions", "qubox")}
+        ${versionSection("QuKDS Versions", report.qukdsVersions, report, "qukds-versions", "qukds")}
+        ${versionSection("QuORB Versions", report.quorbVersions, report, "quorb-versions", "quorb")}`;
 }
 
-function versionSection(title, versions, report, sectionId = "") {
+function versionSection(title, versions, report, sectionId = "", appType = "pos") {
     if (!versions?.length) return "";
+    const baseline = versionBaseline(report, versions, appType);
     return `
         <section class="report-section" ${sectionId ? `id="${escapeHtml(sectionId)}"` : ""}>
             <h2>${escapeHtml(title)}</h2>
             ${simpleTable(["Version", "Release Train", "Terminals", "Stores", "Types", "Download"], versions.map(item => [
-                badge(item.version, report),
+                badge(item.version, report, baseline),
                 item.releaseTrain || "",
                 item.terminalCount,
                 item.storeCount,
                 item.terminalTypes,
                 item.url ? `<a href="${escapeHtml(item.url)}" target="_blank">Download</a>` : ""
             ]))}
-            ${versions.map(item => versionDetail(item, report)).join("")}
+            ${versions.map(item => versionDetail(item, report, baseline)).join("")}
         </section>`;
 }
 
-function versionDetail(item, report) {
+function versionDetail(item, report, baseline = null) {
     return `
         <details class="version-detail">
-            <summary>${badge(item.version, report)}<span>${escapeHtml(item.terminalCount)} terminals across ${escapeHtml(item.storeCount)} stores</span></summary>
+            <summary>${badge(item.version, report, baseline)}<span>${escapeHtml(item.terminalCount)} terminals across ${escapeHtml(item.storeCount)} stores</span></summary>
             <div class="detail-body">
                 ${item.url ? `<p><a href="${escapeHtml(item.url)}" target="_blank">${escapeHtml(item.url)}</a></p>` : ""}
                 ${simpleTable(["Store ID", "Store Name", "Terminals", "Types", "Latest Seen"], (item.storeRows || []).map(store => [
