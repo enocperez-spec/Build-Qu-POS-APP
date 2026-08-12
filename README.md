@@ -45,6 +45,8 @@ alerts, and historical comparisons.
   EI operational status by store name or store ID.
 - Provides a fleet-level Device Health dashboard calculated from historical CSV
   snapshots, including health trends, down-device counts, and version adoption.
+  The fleet dashboard includes only stores with a confirmed Live QU EI status
+  and displays the number of excluded stores.
 - Provides a dedicated Store Health navigation page for searching stores and
   opening detailed device health scorecards.
 - Shows a polished top-right user profile card with role, dashboard last
@@ -52,7 +54,7 @@ alerts, and historical comparisons.
 
 ## Release Notes
 
-The current application version is `v007.02`.
+The current application version is `v007.03`.
 
 Release history is tracked in [docs/FEATURE_RELEASES.md](docs/FEATURE_RELEASES.md).
 Every completed request receives the next version number and remains available

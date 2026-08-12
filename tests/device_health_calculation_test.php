@@ -26,6 +26,8 @@ $snapshots = [
             ['Store ID' => '100', 'Store Name' => 'AA-Test-One', 'Terminal ID' => '2', 'Computer Name' => 'QU100T2', 'Network Address' => '192.168.22.112', 'Terminal Type' => 'POS', 'Current Version' => '3.5.232.6451', 'Last Seen Online' => '08/01/2026 07:31 AM America/New_York'],
             ['Store ID' => '100', 'Store Name' => 'AA-Test-One', 'Terminal ID' => '10', 'Computer Name' => 'QU100BOX', 'Network Address' => '192.168.22.10', 'Terminal Type' => 'QuBox', 'Current Version' => '3.6.952-6459', 'Last Seen Online' => '08/01/2026 07:32 AM America/New_York'],
             ['Store ID' => '200', 'Store Name' => 'CV-Test-Two', 'Terminal ID' => '20', 'Computer Name' => 'QU200T1', 'Network Address' => '192.168.22.111', 'Terminal Type' => 'POS', 'Current Version' => '3.5.232.6451', 'Last Seen Online' => '08/01/2026 07:25 AM America/New_York'],
+            ['Store ID' => '300', 'Store Name' => 'Closed-Test-Three', 'Terminal ID' => '30', 'Computer Name' => 'QU300T1', 'Network Address' => '192.168.22.111', 'Terminal Type' => 'POS', 'Current Version' => '3.5.100.1000', 'Last Seen Online' => '08/01/2026 07:20 AM America/New_York'],
+            ['Store ID' => '400', 'Store Name' => 'Unknown-Test-Four', 'Terminal ID' => '40', 'Computer Name' => 'QU400T1', 'Network Address' => '192.168.22.111', 'Terminal Type' => 'POS', 'Current Version' => '3.5.100.1000', 'Last Seen Online' => '08/01/2026 07:20 AM America/New_York'],
         ],
     ],
     [
@@ -35,6 +37,8 @@ $snapshots = [
             ['Store ID' => '100', 'Store Name' => 'AA-Test-One', 'Terminal ID' => '1', 'Computer Name' => 'QU100T1', 'Network Address' => '192.168.22.111', 'Terminal Type' => 'POS', 'Current Version' => '3.5.232.6451', 'Last Seen Online' => '08/04/2026 07:30 AM America/New_York'],
             ['Store ID' => '100', 'Store Name' => 'AA-Test-One', 'Terminal ID' => '10', 'Computer Name' => 'QU100BOX', 'Network Address' => '192.168.22.10', 'Terminal Type' => 'QuBox', 'Current Version' => '3.6.952-6459', 'Last Seen Online' => '08/01/2026 07:32 AM America/New_York'],
             ['Store ID' => '200', 'Store Name' => 'CV-Test-Two', 'Terminal ID' => '20', 'Computer Name' => 'QU200T1', 'Network Address' => '192.168.22.111', 'Terminal Type' => 'POS', 'Current Version' => '3.5.232.6451', 'Last Seen Online' => '08/04/2026 07:25 AM America/New_York'],
+            ['Store ID' => '300', 'Store Name' => 'Closed-Test-Three', 'Terminal ID' => '30', 'Computer Name' => 'QU300T1', 'Network Address' => '192.168.22.111', 'Terminal Type' => 'POS', 'Current Version' => '3.5.100.1000', 'Last Seen Online' => '08/04/2026 07:20 AM America/New_York'],
+            ['Store ID' => '400', 'Store Name' => 'Unknown-Test-Four', 'Terminal ID' => '40', 'Computer Name' => 'QU400T1', 'Network Address' => '192.168.22.111', 'Terminal Type' => 'POS', 'Current Version' => '3.5.100.1000', 'Last Seen Online' => '08/04/2026 07:20 AM America/New_York'],
         ],
     ],
     [
@@ -44,6 +48,8 @@ $snapshots = [
             ['Store ID' => '100', 'Store Name' => 'AA-Test-One', 'Terminal ID' => '1', 'Computer Name' => 'QU100T1', 'Network Address' => '192.168.22.111', 'Terminal Type' => 'POS', 'Current Version' => '3.5.232.6451', 'Last Seen Online' => '08/11/2026 07:30 AM America/New_York'],
             ['Store ID' => '100', 'Store Name' => 'AA-Test-One', 'Terminal ID' => '2', 'Computer Name' => 'QU100T2', 'Network Address' => '192.168.22.112', 'Terminal Type' => 'POS', 'Current Version' => '3.5.231.6408', 'Last Seen Online' => '08/01/2026 07:31 AM America/New_York'],
             ['Store ID' => '200', 'Store Name' => 'CV-Test-Two', 'Terminal ID' => '20', 'Computer Name' => 'QU200T1', 'Network Address' => '192.168.22.111', 'Terminal Type' => 'POS', 'Current Version' => '3.5.232.6451', 'Last Seen Online' => '08/11/2026 07:25 AM America/New_York'],
+            ['Store ID' => '300', 'Store Name' => 'Closed-Test-Three', 'Terminal ID' => '30', 'Computer Name' => 'QU300T1', 'Network Address' => '192.168.22.111', 'Terminal Type' => 'POS', 'Current Version' => '3.5.100.1000', 'Last Seen Online' => '08/11/2026 07:20 AM America/New_York'],
+            ['Store ID' => '400', 'Store Name' => 'Unknown-Test-Four', 'Terminal ID' => '40', 'Computer Name' => 'QU400T1', 'Network Address' => '192.168.22.111', 'Terminal Type' => 'POS', 'Current Version' => '3.5.100.1000', 'Last Seen Online' => '08/11/2026 07:20 AM America/New_York'],
         ],
     ],
 ];
@@ -51,10 +57,18 @@ $snapshots = [
 $metadata = [
     '100' => ['storeName' => 'AA-Test-One', 'brands' => ["Auntie Anne's"], 'status' => 'Live'],
     '200' => ['storeName' => 'CV-Test-Two', 'brands' => ['Carvel'], 'status' => 'Live'],
+    '300' => ['storeName' => 'Closed-Test-Three', 'brands' => ['Carvel'], 'status' => 'Not Operational'],
+    '400' => ['storeName' => 'Unknown-Test-Four', 'brands' => ['Carvel'], 'status' => ''],
 ];
 
 $dashboard = DeviceHealthService::fixtureDashboard($snapshots, $metadata);
 assertSameValue(2, $dashboard['summary']['totalStores'], 'Store count must use distinct Store IDs.');
+assertSameValue(true, $dashboard['scope']['liveStoresOnly'], 'Dashboard scope must be limited to Live stores.');
+assertSameValue(4, $dashboard['scope']['totalStoresInPeriod'], 'Scope must disclose every store in the selected period.');
+assertSameValue(2, $dashboard['scope']['liveStoresInPeriod'], 'Scope must count Live stores accurately.');
+assertSameValue(1, $dashboard['scope']['notOperationalExcluded'], 'Not Operational stores must be excluded from Device Health.');
+assertSameValue(1, $dashboard['scope']['unverifiedStatusExcluded'], 'Stores without a Live status must be excluded from Device Health.');
+assertSameValue([], array_values(array_filter($dashboard['stores'], static fn(array $store): bool => $store['operationalStatus'] !== 'Live')), 'Every Device Health row must have Live status.');
 assertSameValue(5, $dashboard['summary']['totalDevices'], 'Device count must include the inferred required QuBox at Store 200.');
 assertSameValue(2, $dashboard['summary']['healthy'], 'Current healthy-device count must reconcile.');
 assertSameValue(0, $dashboard['summary']['warning'], 'Current warning-device count must reconcile.');

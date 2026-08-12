@@ -523,6 +523,14 @@ const FEATURE_RELEASES = [
         type: "Improvement",
         status: "Released",
     },
+    {
+        version: "v007.03",
+        releasedAt: "August 12, 2026 00:43 EST",
+        title: "Live Store Device Health Scope",
+        description: "Limited the Device Health dashboard to stores whose latest QU EI operational status is Live. Not Operational and unverified-status stores are excluded before all metrics, trends, version adoption, brand filters, and tables are calculated, with scope counts displayed on the dashboard.",
+        type: "Improvement",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
@@ -1521,7 +1529,7 @@ function deviceHealthDashboardView(dashboard) {
             <div class="health-page-heading">
                 <div>
                     <h2>Device Health Dashboard</h2>
-                    <p>Store device reporting health calculated from historical CSV snapshots.</p>
+                    <p>Live-store device reporting health calculated from historical CSV snapshots.</p>
                 </div>
                 <div class="health-updated">
                     <span class="health-live-dot" aria-hidden="true"></span>
@@ -1530,6 +1538,7 @@ function deviceHealthDashboardView(dashboard) {
                 </div>
             </div>
 
+            ${healthLiveStoreScope(dashboard.scope || {})}
             ${deviceHealthFilters(dashboard)}
 
             <div class="health-metric-grid">
@@ -1635,6 +1644,24 @@ function healthMetricCard(label, value, meta, tone, icon) {
             <span class="health-metric-icon" aria-hidden="true">${metricIcon(icon)}</span>
             <div><span class="health-metric-label">${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong><small>${escapeHtml(meta)}</small></div>
         </article>`;
+}
+
+function healthLiveStoreScope(scope) {
+    const notOperational = Number(scope.notOperationalExcluded || 0);
+    const unverified = Number(scope.unverifiedStatusExcluded || 0);
+    return `
+        <section class="health-live-scope" aria-label="Device Health store scope">
+            <span class="health-live-scope-icon" aria-hidden="true">${metricIcon("stable")}</span>
+            <div class="health-live-scope-copy">
+                <strong>Live Stores Only</strong>
+                <span>All Device Health metrics, trends, version adoption, and tables include only stores whose latest QU EI status is Live.</span>
+            </div>
+            <div class="health-live-scope-counts">
+                <span><strong>${formatNumber(scope.liveStoresInPeriod || 0)}</strong> Live stores</span>
+                <span><strong>${formatNumber(notOperational)}</strong> Not Operational excluded</span>
+                ${unverified > 0 ? `<span><strong>${formatNumber(unverified)}</strong> Without confirmed Live status excluded</span>` : ""}
+            </div>
+        </section>`;
 }
 
 function worstStoresTable(stores) {

@@ -26,7 +26,14 @@ final class DeviceHealthService
 
     private static function dashboardFromModel(array $model, array $filters): array
     {
-        $stores = self::filteredStores($model, $filters);
+        $allStores = $model['stores'];
+        $liveStores = array_filter($allStores, static fn(array $store): bool => self::isLiveOperational((string)$store['operationalStatus']));
+        $notOperationalStores = array_filter($allStores, static fn(array $store): bool => self::isNotOperational((string)$store['operationalStatus']));
+        $unverifiedStores = array_filter($allStores, static function (array $store): bool {
+            $status = (string)$store['operationalStatus'];
+            return !self::isLiveOperational($status) && !self::isNotOperational($status);
+        });
+        $stores = self::filteredStores($liveStores, $filters);
         $snapshotCount = count($model['snapshots']);
         $statusCounts = self::emptyStatusCounts();
         $productCounts = [];
@@ -91,7 +98,8 @@ final class DeviceHealthService
             ];
         }
 
-        $stableVersions = self::stableAdoption($stores, $model['stableVersions']);
+        $liveStableVersions = self::stableVersions($liveStores);
+        $stableVersions = self::stableAdoption($stores, $liveStableVersions);
         $issuesByType = [];
         foreach (self::orderedProducts(array_keys($productCounts)) as $product) {
             $counts = $productCounts[$product];
@@ -115,7 +123,15 @@ final class DeviceHealthService
         return [
             'period' => self::periodPayload($model),
             'filters' => self::filterPayload($filters),
-            'availableBrands' => self::availableBrands($model['stores']),
+            'scope' => [
+                'label' => 'Live Stores Only',
+                'liveStoresOnly' => true,
+                'totalStoresInPeriod' => count($allStores),
+                'liveStoresInPeriod' => count($liveStores),
+                'notOperationalExcluded' => count($notOperationalStores),
+                'unverifiedStatusExcluded' => count($unverifiedStores),
+            ],
+            'availableBrands' => self::availableBrands($liveStores),
             'summary' => [
                 'fleetHealthScore' => self::percentage($healthyChecks, $totalChecks),
                 'totalStores' => count($stores),
@@ -257,6 +273,13 @@ final class DeviceHealthService
             'snapshotsAvailable' => $dashboard['period']['snapshotCount'] > 0,
             'storesAvailable' => $summary['totalStores'] > 0,
             'devicesAvailable' => $summary['totalDevices'] > 0,
+            'liveStoreScopeEnabled' => ($dashboard['scope']['liveStoresOnly'] ?? false) === true,
+            'storeScopeCountsReconcile' =>
+                ($dashboard['scope']['liveStoresInPeriod'] ?? 0)
+                + ($dashboard['scope']['notOperationalExcluded'] ?? 0)
+                + ($dashboard['scope']['unverifiedStatusExcluded'] ?? 0)
+                === ($dashboard['scope']['totalStoresInPeriod'] ?? -1),
+            'dashboardRowsAreLive' => !array_filter($dashboard['stores'], static fn(array $store): bool => !self::isLiveOperational((string)$store['operationalStatus'])),
             'statusCountsReconcile' => $statusTotal === $summary['totalDevices'],
             'productCountsReconcile' => $productTotal === $summary['totalDevices'],
             'scoreReconciles' => $calculatedScore === $summary['fleetHealthScore'],
@@ -597,9 +620,9 @@ final class DeviceHealthService
         return $timeline;
     }
 
-    private static function filteredStores(array $model, array $filters): array
+    private static function filteredStores(array $stores, array $filters): array
     {
-        return array_filter($model['stores'], static function (array $store) use ($filters): bool {
+        return array_filter($stores, static function (array $store) use ($filters): bool {
             $mode = (string)($filters['mode'] ?? 'all');
             $brands = $store['brands'];
             if ($mode === 'brand' && !in_array((string)($filters['brand'] ?? ''), $brands, true)) {
@@ -1102,6 +1125,14 @@ final class DeviceHealthService
     private static function isNotOperational(string $status): bool
     {
         return str_contains(strtolower($status), 'not operational');
+    }
+
+    private static function isLiveOperational(string $status): bool
+    {
+        $normalized = strtolower(trim($status));
+        return $normalized !== ''
+            && !self::isNotOperational($normalized)
+            && preg_match('/\blive\b/', $normalized) === 1;
     }
 
     private static function normalizeDays(int $days): int
