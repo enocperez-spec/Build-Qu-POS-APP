@@ -344,6 +344,14 @@ const FEATURE_RELEASES = [
         type: "Improvement",
         status: "Released",
     },
+    {
+        version: "v005.02",
+        releasedAt: "2026-08-11 22:55:00 -04:00",
+        title: "Product-Specific Version Card Labels",
+        description: "Updated version detail cards so POS uses Terminals, while Kiosk, QuBox, QuKDS, and QuORB sections show product-specific device labels with live device and store counts.",
+        type: "Improvement",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
@@ -405,6 +413,17 @@ function mostCurrentVersion(versions) {
         .filter(version => /^\d+(?:[.-]\d+)+$/.test(version))
         .sort(compareVersions)
         .at(-1) || "N/A";
+}
+
+function deviceLabel(appType = "pos") {
+    const labels = {
+        pos: "Terminals",
+        kiosk: "Kiosk",
+        qubox: "QuBox",
+        qukds: "QuKDS",
+        quorb: "QuORB",
+    };
+    return labels[appType] || "Devices";
 }
 
 function canManageUsers() {
@@ -1641,14 +1660,15 @@ function versionSection(title, versions, report, sectionId = "", appType = "pos"
                 item.terminalTypes,
                 item.url ? `<a href="${escapeHtml(item.url)}" target="_blank">Download</a>` : ""
             ]))}
-            ${versions.map(item => versionDetail(item, report, baseline)).join("")}
+            ${versions.map(item => versionDetail(item, report, baseline, appType)).join("")}
         </section>`;
 }
 
-function versionDetail(item, report, baseline = null) {
+function versionDetail(item, report, baseline = null, appType = "pos") {
+    const productName = deviceLabel(appType);
     return `
         <details class="version-detail">
-            <summary>${badge(item.version, report, baseline)}<span>${escapeHtml(item.terminalCount)} terminals across ${escapeHtml(item.storeCount)} stores</span></summary>
+            <summary>${badge(item.version, report, baseline)}<span>${escapeHtml(item.terminalCount)} ${escapeHtml(productName)} across ${escapeHtml(item.storeCount)} stores</span></summary>
             <div class="detail-body">
                 ${item.url ? `<p><a href="${escapeHtml(item.url)}" target="_blank">${escapeHtml(item.url)}</a></p>` : ""}
                 ${simpleTable(["Store ID", "Store Name", "Terminals", "Types", "Latest Seen"], (item.storeRows || []).map(store => [
