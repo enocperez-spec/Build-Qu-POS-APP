@@ -400,6 +400,14 @@ const FEATURE_RELEASES = [
         type: "Bug Fix",
         status: "Released",
     },
+    {
+        version: "v005.09",
+        releasedAt: "2026-08-12 00:10:00 -04:00",
+        title: "Store Export Selector Hardening",
+        description: "Updated the QU EI Store Information export automation to use the Stores page export test ID and pair export clicks with the download listener for clearer failures.",
+        type: "Bug Fix",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;

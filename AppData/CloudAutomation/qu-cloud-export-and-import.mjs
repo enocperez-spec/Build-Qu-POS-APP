@@ -21,6 +21,7 @@ const exportTargets = {
     quUrl: 'https://admin.qubeyond.com/n/operations/terminals',
     importUrl: 'https://quposapp.qupostech.com/api/cloud-import.php',
     exportText: /export terminals/i,
+    exportTestId: '',
     formField: 'currentCsv',
     label: 'terminals',
   },
@@ -28,6 +29,7 @@ const exportTargets = {
     quUrl: 'https://admin.qubeyond.com/configuration/stores/',
     importUrl: 'https://quposapp.qupostech.com/api/cloud-store-import.php',
     exportText: /export stores? info|export store information/i,
+    exportTestId: 'exportStoresInfoBtn',
     formField: 'storeCsv',
     label: 'stores',
   },
@@ -228,11 +230,13 @@ async function exportCsv() {
       { name: 'Actions-like button', locator: p => actionsButton(p) },
     ]);
 
-    const downloadPromise = page.waitForEvent('download', { timeout: settings.timeoutMs });
-    await clickFirst(page, [
-      { name: `Export ${target.label} item`, locator: p => p.locator('a, button, [role="menuitem"], [role="button"]').filter({ hasText: target.exportText }) },
+    const [download] = await Promise.all([
+      page.waitForEvent('download', { timeout: settings.timeoutMs }),
+      clickFirst(page, [
+        ...(target.exportTestId ? [{ name: `Export ${target.label} item by test id`, locator: p => p.locator(`[data-test-id="${target.exportTestId}"]`) }] : []),
+        { name: `Export ${target.label} item`, locator: p => p.locator('a, button, [role="menuitem"], [role="button"], .o-drop__item').filter({ hasText: target.exportText }) },
+      ]),
     ]);
-    const download = await downloadPromise;
     const filePath = path.join(await fs.mkdtemp(path.join(os.tmpdir(), 'qu-export-')), download.suggestedFilename() || 'terminals.csv');
     await download.saveAs(filePath);
     console.log(`${target.label} export saved: ${filePath}`);

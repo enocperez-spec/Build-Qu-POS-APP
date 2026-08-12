@@ -1,6 +1,6 @@
 # Release Notes
 
-Current application version: `v005.08`
+Current application version: `v005.09`
 
 Version sequence: `v001.01` through `v001.09`, then `v002.00`, followed by
 `v002.00` through `v002.09`, then `v003.00` through `v003.09`, then `v004.00`
@@ -14,6 +14,7 @@ Newest releases are listed first.
 
 | Version | Release Date And Time | Type | Title | Description | Status |
 | --- | --- | --- | --- | --- | --- |
+| v005.09 | 2026-08-12 00:10:00 -04:00 | Bug Fix | Store Export Selector Hardening | Updated the QU EI Store Information export automation to use the Stores page export test ID and pair export clicks with the download listener for clearer failures. | Released |
 | v005.08 | 2026-08-12 00:00:00 -04:00 | Bug Fix | Store Export Menu Label Fix | Updated the QU EI Store Information export automation to click the current Export Stores Info menu label used on the Stores page. | Released |
 | v005.07 | 2026-08-11 23:50:00 -04:00 | Bug Fix | Store Export Login Detection Fix | Fixed QU EI Store Information export automation so post-login page inputs are not mistaken for the login form after the What's New modal closes. | Released |
 | v005.06 | 2026-08-11 23:40:00 -04:00 | Bug Fix | Store Export Modal Close Reliability | Improved the QU EI Store Information export automation with multiple short-timeout close strategies for the What's New modal, including Escape and X-button fallbacks. | Released |
