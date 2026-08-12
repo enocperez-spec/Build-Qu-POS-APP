@@ -15,6 +15,7 @@ Newest releases are listed first.
 
 | Version | Release Date And Time | Type | Title | Description | Status |
 | --- | --- | --- | --- | --- | --- |
+| v007.05 | August 12, 2026 01:52 EST | Bug Fix | Store Health Role Permission | Added Store Health as its own User Roles permission so administrators can independently control the Store Health navigation, store search, and scorecard access for Admin, Tech, and Read-Only roles. | Released |
 | v007.04 | August 12, 2026 01:27 EST | Security | Account Security And User Audit Logs | Added configurable account lockout and login rate limiting, 2FA recovery codes, secure self-service password reset and password changes, sensitive-change session invalidation, administrator identity updates with security notifications, and a searchable read-only audit log with filters, sorting, pagination, and CSV or Excel export. | Released |
 | v007.03 | August 12, 2026 00:43 EST | Improvement | Live Store Device Health Scope | Limited the Device Health dashboard to stores whose latest QU EI operational status is Live. Not Operational and unverified-status stores are excluded before all metrics, trends, version adoption, brand filters, and tables are calculated, with scope counts displayed on the dashboard. | Released |
 | v007.02 | August 12, 2026 00:34 EST | Improvement | Store Health Navigation | Added a dedicated Store Health navigation page with direct store search, reporting-period selection, and scorecard routing while preserving the fleet-level Device Health dashboard. | Released |

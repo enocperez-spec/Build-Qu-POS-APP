@@ -541,6 +541,14 @@ const FEATURE_RELEASES = [
         type: "Security",
         status: "Released",
     },
+    {
+        version: "v007.05",
+        releasedAt: "August 12, 2026 01:52 EST",
+        title: "Store Health Role Permission",
+        description: "Added Store Health as its own User Roles permission so administrators can independently control the Store Health navigation, store search, and scorecard access for Admin, Tech, and Read-Only roles.",
+        type: "Bug Fix",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
@@ -637,8 +645,8 @@ function canAccess(section) {
     if (!state.user) return false;
     if (state.user.role === "admin") return true;
     const fallback = {
-        tech: { dashboard: true, reports: true, upload: true, alerts: true, device_health: true, settings: false },
-        read_only: { dashboard: true, reports: true, upload: false, alerts: true, device_health: true, settings: false },
+        tech: { dashboard: true, reports: true, upload: true, alerts: true, device_health: true, store_health: true, settings: false },
+        read_only: { dashboard: true, reports: true, upload: false, alerts: true, device_health: true, store_health: true, settings: false },
     };
     return !!(state.user.permissions?.[section] ?? fallback[state.user.role]?.[section]);
 }
@@ -679,7 +687,7 @@ function shell(content, page = state.currentPage || "dashboard") {
                 ${uploadNav}
                 ${canAccess("alerts") ? `<button class="${navClass("alerts")}" id="alertsNavBtn">Alerts</button>` : ""}
                 ${canAccess("device_health") ? `<button class="${navClass("deviceHealth")}" id="deviceHealthNavBtn">Device Health</button>` : ""}
-                ${canAccess("device_health") ? `<button class="${navClass("storeHealth")}" id="storeHealthNavBtn">Store Health</button>` : ""}
+                ${canAccess("store_health") ? `<button class="${navClass("storeHealth")}" id="storeHealthNavBtn">Store Health</button>` : ""}
                 ${settingsNav}
             </aside>
             <main class="main">${content}${footer()}</main>
@@ -1552,7 +1560,7 @@ async function renderDeviceHealthPage() {
 }
 
 function renderStoreHealthPage() {
-    if (!canAccess("device_health")) {
+    if (!canAccess("store_health")) {
         renderHome();
         return;
     }

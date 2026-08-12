@@ -45,7 +45,10 @@ try {
         exit;
     }
 
-    Auth::requireSection($pdo, Database::SECTION_DEVICE_HEALTH);
+    $requiredSection = in_array($action, ['store', 'search'], true)
+        ? Database::SECTION_STORE_HEALTH
+        : Database::SECTION_DEVICE_HEALTH;
+    Auth::requireSection($pdo, $requiredSection);
 
     if ($action === 'dashboard') {
         $selectedBrands = array_values(array_filter(array_map('trim', explode('|', (string)($_GET['selectedBrands'] ?? '')))));

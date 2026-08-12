@@ -11,6 +11,7 @@ final class Database
     public const SECTION_UPLOAD = 'upload';
     public const SECTION_ALERTS = 'alerts';
     public const SECTION_DEVICE_HEALTH = 'device_health';
+    public const SECTION_STORE_HEALTH = 'store_health';
     public const SECTION_SETTINGS = 'settings';
     public const JOB_TERMINALS = 'qu_ei_terminals_csv';
     public const JOB_STORES = 'qu_ei_stores_csv';
@@ -350,6 +351,7 @@ final class Database
             ['key' => self::SECTION_UPLOAD, 'label' => 'Upload CSV'],
             ['key' => self::SECTION_ALERTS, 'label' => 'Alerts'],
             ['key' => self::SECTION_DEVICE_HEALTH, 'label' => 'Device Health'],
+            ['key' => self::SECTION_STORE_HEALTH, 'label' => 'Store Health'],
             ['key' => self::SECTION_SETTINGS, 'label' => 'Settings'],
         ];
     }
@@ -368,6 +370,7 @@ final class Database
                 self::SECTION_UPLOAD => true,
                 self::SECTION_ALERTS => true,
                 self::SECTION_DEVICE_HEALTH => true,
+                self::SECTION_STORE_HEALTH => true,
                 self::SECTION_SETTINGS => true,
             ],
             self::ROLE_TECH => [
@@ -376,6 +379,7 @@ final class Database
                 self::SECTION_UPLOAD => true,
                 self::SECTION_ALERTS => true,
                 self::SECTION_DEVICE_HEALTH => true,
+                self::SECTION_STORE_HEALTH => true,
                 self::SECTION_SETTINGS => false,
             ],
             self::ROLE_READ_ONLY => [
@@ -384,6 +388,7 @@ final class Database
                 self::SECTION_UPLOAD => false,
                 self::SECTION_ALERTS => true,
                 self::SECTION_DEVICE_HEALTH => true,
+                self::SECTION_STORE_HEALTH => true,
                 self::SECTION_SETTINGS => false,
             ],
         ];
