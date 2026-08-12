@@ -27,8 +27,14 @@ try {
     }
 
     if ($action === 'delete') {
-        Auth::requireAdmin();
-        Database::deleteCsvUpload($pdo, (int)($input['id'] ?? 0));
+        $actingUser = Auth::requireAdmin();
+        $id = (int)($input['id'] ?? 0);
+        $uploads = Database::listCsvUploads($pdo);
+        $target = current(array_filter($uploads, static fn(array $upload): bool => (int)$upload['id'] === $id)) ?: null;
+        Database::deleteCsvUpload($pdo, $id);
+        SecurityService::audit($pdo, $actingUser, 'deletion', 'Terminal CSV history deleted', 'csv_upload', (string)$id, $target['filename'] ?? null, 'successful', [
+            'rowCount' => $target['rowCount'] ?? null,
+        ]);
         echo json_encode(['ok' => true]);
         exit;
     }

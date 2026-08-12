@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/ReportService.php';
 require_once __DIR__ . '/Database.php';
+require_once __DIR__ . '/SecurityService.php';
 
 header('Content-Type: application/json');
 
@@ -36,9 +37,13 @@ try {
         exit;
     }
 
+    $pdo = Database::fromConfig();
+    if ($pdo) Database::initialize($pdo);
+
     $expectedToken = automationToken();
     $providedToken = requestBearerToken();
     if ($expectedToken === '' || $providedToken === '' || !hash_equals($expectedToken, $providedToken)) {
+        if ($pdo instanceof PDO) SecurityService::audit($pdo, null, 'automation', 'Automated terminal CSV import authentication', 'automation_endpoint', 'cloud-import', 'cloud-import', 'blocked', [], 'Invalid automation token.');
         http_response_code(401);
         echo json_encode(['ok' => false, 'error' => 'Unauthorized.']);
         exit;
@@ -48,7 +53,6 @@ try {
         throw new RuntimeException('Upload a currentCsv file.');
     }
 
-    $pdo = Database::fromConfig();
     if (!$pdo) {
         throw new RuntimeException('Database configuration is required for cloud CSV imports.');
     }
@@ -73,6 +77,9 @@ try {
     ]);
     Database::releaseApiLock($pdo, 'qu_ei_terminals_csv');
     $lockAcquired = false;
+    SecurityService::audit($pdo, null, 'automation', 'Automated terminal CSV import', 'csv_upload', (string)($result['currentUploadId'] ?? ''), (string)$_FILES['currentCsv']['name'], 'successful', [
+        'triggerType' => $triggerType, 'attempts' => max(1, $attempts), 'recordsReceived' => $records,
+    ]);
     $result['databaseSaved'] = true;
     echo json_encode(['ok' => true] + $result);
 } catch (Throwable $exception) {
@@ -85,6 +92,11 @@ try {
     }
     if ($pdo instanceof PDO && !empty($lockAcquired)) {
         Database::releaseApiLock($pdo, 'qu_ei_terminals_csv');
+    }
+    if ($pdo instanceof PDO) {
+        SecurityService::audit($pdo, null, 'automation', 'Automated terminal CSV import', 'csv_file', null, $_FILES['currentCsv']['name'] ?? null, 'failed', [
+            'triggerType' => $triggerType ?? 'Scheduled', 'attempts' => $attempts ?? 1,
+        ], $exception->getMessage());
     }
     http_response_code(400);
     echo json_encode(['ok' => false, 'error' => $exception->getMessage()]);

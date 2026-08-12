@@ -12,7 +12,9 @@ const state = {
     dashboardHealth: null,
     activeTab: "current",
     uploadTab: "terminal",
-    settingsTab: "users",
+    settingsTab: "security",
+    securityOverview: null,
+    audit: { page: 1, pageSize: 25, total: 0, totalPages: 1, sort: "date", direction: "desc", filters: null },
     currentPage: "dashboard",
     deviceHealthDashboard: null,
     deviceHealthStore: null,
@@ -531,6 +533,14 @@ const FEATURE_RELEASES = [
         type: "Improvement",
         status: "Released",
     },
+    {
+        version: "v007.04",
+        releasedAt: "August 12, 2026 01:27 EST",
+        title: "Account Security And User Audit Logs",
+        description: "Added configurable account lockout and login rate limiting, 2FA recovery codes, secure self-service password reset and password changes, sensitive-change session invalidation, administrator identity updates with security notifications, and a searchable read-only audit log with filters, sorting, pagination, and CSV or Excel export.",
+        type: "Security",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
@@ -634,7 +644,7 @@ function canAccess(section) {
 }
 
 function canManageSettings() {
-    return state.user?.role === "admin" && canAccess("settings");
+    return !!state.user;
 }
 
 function roleLabel(role) {
@@ -929,6 +939,11 @@ function renderUploadPage() {
 }
 
 async function boot() {
+    const resetToken = new URLSearchParams(window.location.search).get("reset");
+    if (resetToken) {
+        renderPasswordReset(resetToken);
+        return;
+    }
     if (state.report) {
         app.innerHTML = `<main class="report-only">${header()}${reportView(state.report)}${footer()}</main>`;
         bindShell();
@@ -981,12 +996,99 @@ function renderAuth() {
                     <input class="text-input" id="authPassword" type="password" autocomplete="${setup ? "new-password" : "current-password"}" required>
                     <button class="btn primary" type="submit">${setup ? "Create Admin" : "Sign In"}</button>
                 </form>
+                ${setup ? "" : `<button class="auth-link" id="forgotPasswordBtn" type="button">Forgot your password?</button>`}
                 <div id="authMessage" class="status-message"></div>
             </section>
             ${footer()}
         </main>`;
     document.getElementById("authForm").addEventListener("submit", submitAuth);
+    document.getElementById("forgotPasswordBtn")?.addEventListener("click", renderPasswordResetRequest);
     bindFooter();
+}
+
+function renderPasswordResetRequest() {
+    app.innerHTML = `
+        <main class="auth-page">
+            <section class="auth-card panel">
+                <img class="brand-logo" src="assets/goto-foods-white-logo.png" alt="GoTo Foods">
+                <h1>Reset Password</h1>
+                <p class="subtle">Enter your account email. If the account exists, we will send a secure, single-use reset link.</p>
+                <form id="resetRequestForm">
+                    <label>Email</label>
+                    <input class="text-input" id="resetEmail" type="email" autocomplete="email" required>
+                    <button class="btn primary" type="submit">Send Reset Link</button>
+                    <button class="btn" id="resetBackBtn" type="button">Back To Sign In</button>
+                </form>
+                <div id="resetRequestMessage" class="status-message"></div>
+            </section>
+            ${footer()}
+        </main>`;
+    document.getElementById("resetRequestForm").addEventListener("submit", submitPasswordResetRequest);
+    document.getElementById("resetBackBtn").addEventListener("click", renderAuth);
+    bindFooter();
+}
+
+async function submitPasswordResetRequest(event) {
+    event.preventDefault();
+    const message = document.getElementById("resetRequestMessage");
+    const response = await fetch("api/auth.php?action=request-password-reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: document.getElementById("resetEmail").value }),
+    });
+    const payload = await parseJsonResponse(response);
+    message.textContent = payload.message || "If that account exists, a password-reset email has been sent.";
+    message.className = `status-message ${payload.ok ? "success-message" : "error-message"}`;
+}
+
+function renderPasswordReset(token) {
+    app.innerHTML = `
+        <main class="auth-page">
+            <section class="auth-card panel">
+                <img class="brand-logo" src="assets/goto-foods-white-logo.png" alt="GoTo Foods">
+                <h1>Choose A New Password</h1>
+                <p class="subtle">Use at least 12 characters with uppercase, lowercase, and a number.</p>
+                <form id="passwordResetForm">
+                    <label>New Password</label>
+                    <input class="text-input" id="resetPassword" type="password" autocomplete="new-password" minlength="12" required>
+                    <label>Confirm New Password</label>
+                    <input class="text-input" id="resetPasswordConfirm" type="password" autocomplete="new-password" minlength="12" required>
+                    <button class="btn primary" type="submit">Reset Password</button>
+                </form>
+                <div id="passwordResetMessage" class="status-message"></div>
+            </section>
+            ${footer()}
+        </main>`;
+    document.getElementById("passwordResetForm").addEventListener("submit", event => submitPasswordReset(event, token));
+    bindFooter();
+}
+
+async function submitPasswordReset(event, token) {
+    event.preventDefault();
+    const message = document.getElementById("passwordResetMessage");
+    const password = document.getElementById("resetPassword").value;
+    if (password !== document.getElementById("resetPasswordConfirm").value) {
+        message.textContent = "Passwords do not match.";
+        return;
+    }
+    const response = await fetch("api/auth.php?action=reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, password }),
+    });
+    const payload = await parseJsonResponse(response);
+    if (!payload.ok) {
+        message.textContent = payload.error || "Password could not be reset.";
+        message.className = "status-message error-message";
+        return;
+    }
+    history.replaceState({}, "", window.location.pathname);
+    renderAuth();
+    const authMessage = document.getElementById("authMessage");
+    if (authMessage) {
+        authMessage.textContent = payload.message;
+        authMessage.className = "status-message success-message";
+    }
 }
 
 function renderTwoFactor(setup = null) {
@@ -996,7 +1098,7 @@ function renderTwoFactor(setup = null) {
             <section class="auth-card panel">
                 <img class="brand-logo" src="assets/goto-foods-white-logo.png" alt="GoTo Foods">
                 <h1>${isSetup ? "Set Up Two-Factor Authentication" : "Two-Factor Authentication"}</h1>
-                <p class="subtle">${isSetup ? "Add this account to Microsoft Authenticator, Google Authenticator, Authy, or another authenticator app, then enter the 6-digit code." : "Enter the 6-digit code from your authenticator app."}</p>
+                <p class="subtle">${isSetup ? "Add this account to Microsoft Authenticator, Google Authenticator, Authy, or another authenticator app, then enter the 6-digit code." : "Enter an authenticator code or one unused recovery code."}</p>
                 ${isSetup ? `
                     <div class="qr-card">
                         <div id="twoFactorQr" class="qr-code" aria-label="Two-factor setup QR code"></div>
@@ -1009,8 +1111,8 @@ function renderTwoFactor(setup = null) {
                     <p class="subtle">Scan the QR code with your authenticator app, or enter the setup key manually.</p>
                 ` : ""}
                 <form id="twoFactorForm">
-                    <label>6-digit code</label>
-                    <input class="text-input code-input" id="twoFactorCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required>
+                    <label>Authenticator or recovery code</label>
+                    <input class="text-input code-input" id="twoFactorCode" type="text" autocomplete="one-time-code" maxlength="20" required>
                     <button class="btn primary" type="submit">${isSetup ? "Finish Setup" : "Verify Code"}</button>
                     <button class="btn" id="backToLoginBtn" type="button">Back To Sign In</button>
                 </form>
@@ -1026,6 +1128,30 @@ function renderTwoFactor(setup = null) {
     });
     if (isSetup) renderTwoFactorQr(setup.otpauthUri);
     document.getElementById("twoFactorCode").focus();
+    bindFooter();
+}
+
+function renderRecoveryCodes(codes, continueToApp = true) {
+    app.innerHTML = `
+        <main class="auth-page">
+            <section class="auth-card recovery-card panel">
+                <img class="brand-logo" src="assets/goto-foods-white-logo.png" alt="GoTo Foods">
+                <h1>Save Your Recovery Codes</h1>
+                <p class="subtle">Each code works once if your authenticator is unavailable. Store them somewhere secure; they will not be shown again.</p>
+                <div class="recovery-code-grid">${codes.map(code => `<code>${escapeHtml(code)}</code>`).join("")}</div>
+                <div class="row-actions recovery-actions">
+                    <button class="btn" id="copyRecoveryCodesBtn" type="button">Copy Codes</button>
+                    <button class="btn primary" id="continueRecoveryBtn" type="button">${continueToApp ? "Continue To Application" : "Close"}</button>
+                </div>
+                <div id="recoveryMessage" class="status-message"></div>
+            </section>
+            ${footer()}
+        </main>`;
+    document.getElementById("copyRecoveryCodesBtn").addEventListener("click", async () => {
+        await navigator.clipboard.writeText(codes.join("\n"));
+        document.getElementById("recoveryMessage").textContent = "Recovery codes copied.";
+    });
+    document.getElementById("continueRecoveryBtn").addEventListener("click", () => continueToApp ? renderHome() : renderSettings("security"));
     bindFooter();
 }
 
@@ -1105,7 +1231,11 @@ async function submitTwoFactor(event) {
         await refreshAuthStatus();
         state.needsSetup = false;
         state.pendingTwoFactor = null;
-        renderHome();
+        if (payload.recoveryCodes?.length) {
+            renderRecoveryCodes(payload.recoveryCodes);
+        } else {
+            renderHome();
+        }
     } catch (error) {
         message.textContent = error.message;
     }
@@ -1119,7 +1249,7 @@ function bindShell() {
     document.getElementById("alertsNavBtn")?.addEventListener("click", renderAlertsPage);
     document.getElementById("deviceHealthNavBtn")?.addEventListener("click", renderDeviceHealthPage);
     document.getElementById("storeHealthNavBtn")?.addEventListener("click", renderStoreHealthPage);
-    document.getElementById("settingsNavBtn")?.addEventListener("click", () => renderSettings("users"));
+    document.getElementById("settingsNavBtn")?.addEventListener("click", () => renderSettings("security"));
     bindFooter();
 }
 
@@ -2287,7 +2417,7 @@ function navigateToPage(page) {
         return;
     }
     if (page === "settings" || page === "users") {
-        renderSettings(state.settingsTab || "users");
+        renderSettings(state.settingsTab || "security");
         return;
     }
     renderHome();
@@ -2298,18 +2428,22 @@ async function renderUsers() {
 }
 
 function settingsTabs(activeTab) {
-    const tabs = [
-        ["users", "Users"],
-        ["roles", "User Roles"],
-        ["apiLogs", "API Logs"],
-        ["apiTimes", "API Call Times"],
-    ];
+    const tabs = [["security", "Security"]];
+    if (canManageUsers()) {
+        tabs.push(
+            ["users", "Users"],
+            ["roles", "User Roles"],
+            ["apiLogs", "API Logs"],
+            ["apiTimes", "API Call Times"],
+            ["userLogs", "User Logs"]
+        );
+    }
     return `
         <section class="panel settings-panel">
             <div class="settings-heading">
                 <div>
                     <h2>Settings</h2>
-                    <p class="subtle">Admin tools for users, permissions, QU EI schedules, and retrieval logs.</p>
+                    <p class="subtle">Account security${canManageUsers() ? ", user administration, permissions, automation, and audit logs" : " and recovery options"}.</p>
                 </div>
             </div>
             <div class="tabs settings-tabs">
@@ -2319,11 +2453,10 @@ function settingsTabs(activeTab) {
         </section>`;
 }
 
-async function renderSettings(tab = "users") {
-    if (!canManageUsers()) {
-        renderHome();
-        return;
-    }
+async function renderSettings(tab = "security") {
+    if (!state.user) return renderAuth();
+    const adminTabs = ["users", "roles", "apiLogs", "apiTimes", "userLogs"];
+    if (!canManageUsers() && adminTabs.includes(tab)) tab = "security";
     state.currentPage = "settings";
     state.settingsTab = tab;
     app.innerHTML = shell(header() + settingsTabs(tab), "settings");
@@ -2332,6 +2465,16 @@ async function renderSettings(tab = "users") {
         button.addEventListener("click", () => renderSettings(button.dataset.settingsTab));
     });
     const content = document.getElementById("settingsContent");
+    if (tab === "security") {
+        content.innerHTML = `<div class="empty">Loading account security...</div>`;
+        await loadSecuritySettings();
+        return;
+    }
+    if (tab === "userLogs") {
+        content.innerHTML = userLogsPanel();
+        await initializeUserLogs();
+        return;
+    }
     if (tab === "roles") {
         content.innerHTML = `<div class="empty">Loading role permissions...</div>`;
         await loadRolePermissions();
@@ -2361,7 +2504,7 @@ function userManagementPanel() {
             <form id="createUserForm" class="user-form">
                 <input class="text-input" id="newUserName" placeholder="Display name" required>
                 <input class="text-input" id="newUserEmail" type="email" placeholder="Email" required>
-                <input class="text-input" id="newUserPassword" type="password" placeholder="Temporary password" required>
+                <input class="text-input" id="newUserPassword" type="password" minlength="12" placeholder="Temporary password (12+ chars)" required>
                 <select class="text-input" id="newUserRole">
                     <option value="tech">Tech</option>
                     <option value="read_only">Read-Only</option>
@@ -2372,6 +2515,255 @@ function userManagementPanel() {
             <div id="usersMessage" class="status-message"></div>
             <div id="usersList" class="report-list"></div>
         </div>`;
+}
+
+async function loadSecuritySettings() {
+    const content = document.getElementById("settingsContent");
+    const response = await fetch("api/security.php?action=overview");
+    const payload = await parseJsonResponse(response);
+    if (!payload.ok) {
+        content.innerHTML = `<div class="empty">${escapeHtml(payload.error)}</div>`;
+        return;
+    }
+    state.securityOverview = payload;
+    const account = payload.account || {};
+    const policy = payload.policy;
+    content.innerHTML = `
+        <div class="settings-tab-panel security-settings">
+            <div class="security-summary-grid">
+                <div class="security-summary-card"><span class="label">Two-Factor Authentication</span><strong>${account.twoFactorEnabled ? "Enabled" : "Setup Required"}</strong></div>
+                <div class="security-summary-card"><span class="label">Unused Recovery Codes</span><strong>${escapeHtml(account.recoveryCodesRemaining ?? 0)}</strong></div>
+                <div class="security-summary-card"><span class="label">Last Login</span><strong>${account.lastLoginAt ? escapeHtml(new Date(account.lastLoginAt).toLocaleString()) : "Not recorded"}</strong></div>
+                <div class="security-summary-card"><span class="label">Email Notifications</span><strong>${payload.mail?.enabled && payload.mail?.functionAvailable !== false ? "Enabled" : "Not Configured"}</strong></div>
+            </div>
+            <div class="security-form-grid">
+                <form id="changePasswordForm" class="security-form-card">
+                    <h3>Change Password</h3>
+                    <p class="subtle">Use at least 12 characters with uppercase, lowercase, and a number.</p>
+                    <label>Current Password</label>
+                    <input class="text-input" id="currentPassword" type="password" autocomplete="current-password" required>
+                    <label>New Password</label>
+                    <input class="text-input" id="newPassword" type="password" autocomplete="new-password" minlength="12" required>
+                    <label>Confirm New Password</label>
+                    <input class="text-input" id="confirmNewPassword" type="password" autocomplete="new-password" minlength="12" required>
+                    <button class="btn primary" type="submit">Update Password</button>
+                    <div id="passwordChangeMessage" class="status-message"></div>
+                </form>
+                <form id="recoveryCodesForm" class="security-form-card">
+                    <h3>Regenerate 2FA Recovery Codes</h3>
+                    <p class="subtle">Regenerating invalidates every existing recovery code. Verify with your password and authenticator or a current recovery code.</p>
+                    <label>Current Password</label>
+                    <input class="text-input" id="recoveryPassword" type="password" autocomplete="current-password" required>
+                    <label>Authenticator Or Recovery Code</label>
+                    <input class="text-input" id="recoverySecondFactor" type="text" autocomplete="one-time-code" maxlength="20" required>
+                    <button class="btn warning" type="submit">Regenerate Codes</button>
+                    <div id="recoveryCodesMessage" class="status-message"></div>
+                </form>
+            </div>
+            ${policy ? securityPolicyForm(policy) : ""}
+        </div>`;
+    document.getElementById("changePasswordForm").addEventListener("submit", changeOwnPassword);
+    document.getElementById("recoveryCodesForm").addEventListener("submit", regenerateRecoveryCodes);
+    document.getElementById("securityPolicyForm")?.addEventListener("submit", saveSecurityPolicy);
+}
+
+function securityPolicyForm(policy) {
+    return `
+        <form id="securityPolicyForm" class="security-form-card security-policy-card">
+            <div>
+                <h3>Account Protection Policy</h3>
+                <p class="subtle">These limits apply to every application account. IP and account limits are evaluated independently.</p>
+            </div>
+            <label>Failed Attempts Before Lockout<input class="text-input" id="failedAttemptThreshold" type="number" min="3" max="20" value="${escapeHtml(policy.failedAttemptThreshold)}" required></label>
+            <label>Lockout Duration (Minutes)<input class="text-input" id="lockoutDurationMinutes" type="number" min="1" max="1440" value="${escapeHtml(policy.lockoutDurationMinutes)}" required></label>
+            <label>IP Login Attempts Per Window<input class="text-input" id="loginRateLimitAttempts" type="number" min="5" max="500" value="${escapeHtml(policy.loginRateLimitAttempts)}" required></label>
+            <label>Rate-Limit Window (Minutes)<input class="text-input" id="loginRateLimitWindowMinutes" type="number" min="1" max="1440" value="${escapeHtml(policy.loginRateLimitWindowMinutes)}" required></label>
+            <label>Password Reset Link Expiry (Minutes)<input class="text-input" id="passwordResetExpiryMinutes" type="number" min="10" max="1440" value="${escapeHtml(policy.passwordResetExpiryMinutes)}" required></label>
+            <button class="btn primary" type="submit">Save Security Policy</button>
+            <div id="securityPolicyMessage" class="status-message"></div>
+        </form>`;
+}
+
+async function changeOwnPassword(event) {
+    event.preventDefault();
+    const message = document.getElementById("passwordChangeMessage");
+    const newPassword = document.getElementById("newPassword").value;
+    if (newPassword !== document.getElementById("confirmNewPassword").value) {
+        message.textContent = "New passwords do not match.";
+        message.className = "status-message error-message";
+        return;
+    }
+    const response = await fetch("api/security.php?action=change-password", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword: document.getElementById("currentPassword").value, newPassword }),
+    });
+    const payload = await parseJsonResponse(response);
+    message.textContent = payload.ok ? payload.message : payload.error;
+    message.className = `status-message ${payload.ok ? "success-message" : "error-message"}`;
+    if (payload.ok) event.target.reset();
+}
+
+async function regenerateRecoveryCodes(event) {
+    event.preventDefault();
+    const message = document.getElementById("recoveryCodesMessage");
+    if (!confirm("Regenerate recovery codes? All existing codes will stop working.")) return;
+    const response = await fetch("api/security.php?action=regenerate-recovery-codes", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            password: document.getElementById("recoveryPassword").value,
+            secondFactor: document.getElementById("recoverySecondFactor").value,
+        }),
+    });
+    const payload = await parseJsonResponse(response);
+    if (!payload.ok) {
+        message.textContent = payload.error;
+        message.className = "status-message error-message";
+        return;
+    }
+    renderRecoveryCodes(payload.recoveryCodes, false);
+}
+
+async function saveSecurityPolicy(event) {
+    event.preventDefault();
+    const message = document.getElementById("securityPolicyMessage");
+    const values = {};
+    ["failedAttemptThreshold", "lockoutDurationMinutes", "loginRateLimitAttempts", "loginRateLimitWindowMinutes", "passwordResetExpiryMinutes"].forEach(key => {
+        values[key] = Number(document.getElementById(key).value);
+    });
+    const response = await fetch("api/security.php?action=save-policy", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(values),
+    });
+    const payload = await parseJsonResponse(response);
+    message.textContent = payload.ok ? "Security policy saved." : payload.error;
+    message.className = `status-message ${payload.ok ? "success-message" : "error-message"}`;
+}
+
+function userLogsPanel() {
+    return `
+        <div class="settings-tab-panel audit-panel">
+            <div class="settings-actions-heading">
+                <div><h2>User Logs</h2><p class="subtle">Read-only security and operational audit history. Newest activity appears first.</p></div>
+                <div class="row-actions">
+                    <button class="btn export-btn" id="exportAuditCsv" type="button">Export CSV</button>
+                    <button class="btn export-btn" id="exportAuditExcel" type="button">Export Excel</button>
+                </div>
+            </div>
+            <form id="auditFiltersForm" class="audit-filter-grid">
+                <label>Search<input class="text-input" id="auditSearch" type="search" placeholder="User, action, target, or error"></label>
+                <label>User<select class="text-input" id="auditUser"><option value="">All Users</option></select></label>
+                <label>Action Type<select class="text-input" id="auditActionType"><option value="">All Actions</option></select></label>
+                <label>Status<select class="text-input" id="auditStatus"><option value="">All Results</option><option value="successful">Successful</option><option value="failed">Failed</option><option value="blocked">Blocked</option></select></label>
+                <label>From<input class="text-input" id="auditDateFrom" type="date"></label>
+                <label>To<input class="text-input" id="auditDateTo" type="date"></label>
+                <label>Rows<select class="text-input" id="auditPageSize"><option>10</option><option selected>25</option><option>50</option><option>100</option></select></label>
+                <div class="row-actions audit-filter-actions"><button class="btn primary" type="submit">Apply Filters</button><button class="btn" id="resetAuditFilters" type="button">Clear</button></div>
+            </form>
+            <div id="auditLogsMessage" class="status-message"></div>
+            <div id="auditLogsList"><div class="empty">Loading audit logs...</div></div>
+            <div class="audit-pagination"><span id="auditPageSummary"></span><div class="row-actions"><button class="btn" id="auditPrevious" type="button">Previous</button><button class="btn" id="auditNext" type="button">Next</button></div></div>
+        </div>`;
+}
+
+async function initializeUserLogs() {
+    const response = await fetch("api/security.php?action=audit-filters");
+    const payload = await parseJsonResponse(response);
+    if (!payload.ok) {
+        document.getElementById("auditLogsList").innerHTML = `<div class="empty">${escapeHtml(payload.error)}</div>`;
+        return;
+    }
+    state.audit.filters = payload.filters;
+    const userSelect = document.getElementById("auditUser");
+    (payload.filters.users || []).forEach(user => userSelect.insertAdjacentHTML("beforeend", `<option value="${escapeHtml(user.id)}">${escapeHtml(user.name || user.email)}${user.email ? ` (${escapeHtml(user.email)})` : ""}</option>`));
+    const typeSelect = document.getElementById("auditActionType");
+    (payload.filters.actionTypes || []).forEach(type => typeSelect.insertAdjacentHTML("beforeend", `<option value="${escapeHtml(type)}">${escapeHtml(type.replaceAll("_", " "))}</option>`));
+    document.getElementById("auditFiltersForm").addEventListener("submit", event => { event.preventDefault(); state.audit.page = 1; loadAuditLogs(); });
+    document.getElementById("resetAuditFilters").addEventListener("click", () => { document.getElementById("auditFiltersForm").reset(); state.audit.page = 1; state.audit.pageSize = 25; loadAuditLogs(); });
+    document.getElementById("auditPrevious").addEventListener("click", () => { if (state.audit.page > 1) { state.audit.page--; loadAuditLogs(); } });
+    document.getElementById("auditNext").addEventListener("click", () => { if (state.audit.page < state.audit.totalPages) { state.audit.page++; loadAuditLogs(); } });
+    document.getElementById("exportAuditCsv").addEventListener("click", () => exportAuditLogs("csv"));
+    document.getElementById("exportAuditExcel").addEventListener("click", () => exportAuditLogs("excel"));
+    await loadAuditLogs();
+}
+
+function auditQuery(pageSize = null) {
+    const parameters = new URLSearchParams({
+        action: "audit-logs", page: String(state.audit.page), pageSize: String(pageSize || document.getElementById("auditPageSize")?.value || state.audit.pageSize),
+        sort: state.audit.sort, direction: state.audit.direction,
+    });
+    const fields = { q: "auditSearch", userId: "auditUser", actionType: "auditActionType", status: "auditStatus", dateFrom: "auditDateFrom", dateTo: "auditDateTo" };
+    Object.entries(fields).forEach(([key, id]) => { const value = document.getElementById(id)?.value?.trim(); if (value) parameters.set(key, value); });
+    return parameters;
+}
+
+async function loadAuditLogs() {
+    const list = document.getElementById("auditLogsList");
+    state.audit.pageSize = Number(document.getElementById("auditPageSize")?.value || 25);
+    const response = await fetch(`api/security.php?${auditQuery()}`);
+    const payload = await parseJsonResponse(response);
+    if (!payload.ok) {
+        list.innerHTML = `<div class="empty">${escapeHtml(payload.error)}</div>`;
+        return;
+    }
+    state.audit.total = payload.total;
+    state.audit.totalPages = payload.totalPages;
+    state.audit.page = payload.page;
+    list.innerHTML = auditTable(payload.logs);
+    document.getElementById("auditPageSummary").textContent = `${payload.total.toLocaleString()} entries | Page ${payload.page} of ${payload.totalPages}`;
+    document.getElementById("auditPrevious").disabled = payload.page <= 1;
+    document.getElementById("auditNext").disabled = payload.page >= payload.totalPages;
+    list.querySelectorAll("button[data-audit-sort]").forEach(button => button.addEventListener("click", () => {
+        const sort = button.dataset.auditSort;
+        state.audit.direction = state.audit.sort === sort && state.audit.direction === "asc" ? "desc" : "asc";
+        state.audit.sort = sort;
+        state.audit.page = 1;
+        loadAuditLogs();
+    }));
+}
+
+function auditTable(logs) {
+    const headings = [["date", "Date And Time"], ["user", "User"], ["actionType", "Type"], ["action", "Action"], ["target", "Affected Item"], ["status", "Result"], ["", "IP / Device"], ["", "Details"]];
+    return `<div class="table-wrap"><table class="audit-table"><thead><tr>${headings.map(([key, label]) => `<th>${key ? `<button class="audit-sort" data-audit-sort="${key}" type="button">${label}</button>` : label}</th>`).join("")}</tr></thead><tbody>${logs.length ? logs.map(log => `
+        <tr>
+            <td>${escapeHtml(new Date(log.occurredAt).toLocaleString())}</td>
+            <td><strong>${escapeHtml(log.userName)}</strong><br><span class="subtle">${escapeHtml(log.userEmail)}</span></td>
+            <td>${escapeHtml(log.actionType.replaceAll("_", " "))}</td>
+            <td>${escapeHtml(log.action)}</td>
+            <td>${escapeHtml(log.targetLabel || log.targetId || "")}</td>
+            <td><span class="status-pill ${escapeHtml(log.status)}">${escapeHtml(log.status)}</span></td>
+            <td>${escapeHtml(log.ipAddress)}<br><span class="subtle audit-agent">${escapeHtml(log.userAgent)}</span></td>
+            <td>${log.errorMessage ? `<span class="audit-error">${escapeHtml(log.errorMessage)}</span>` : ""}${Object.keys(log.details || {}).length ? `<details><summary>View details</summary><pre>${escapeHtml(JSON.stringify(log.details, null, 2))}</pre></details>` : ""}</td>
+        </tr>`).join("") : `<tr><td colspan="8"><div class="empty">No audit entries match these filters.</div></td></tr>`}</tbody></table></div>`;
+}
+
+async function exportAuditLogs(format) {
+    const parameters = auditQuery(5000);
+    parameters.set("page", "1");
+    const response = await fetch(`api/security.php?${parameters}`);
+    const payload = await parseJsonResponse(response);
+    if (!payload.ok) return alert(payload.error || "Audit logs could not be exported.");
+    const section = {
+        section: "User Audit Logs",
+        headers: ["Date And Time", "User Name", "Email", "Action Type", "Action", "Affected Item", "Result", "IP Address", "Browser / Device", "Details", "Error"],
+        rows: payload.logs.map(log => [new Date(log.occurredAt).toLocaleString(), log.userName, log.userEmail, log.actionType, log.action, log.targetLabel || log.targetId, log.status, log.ipAddress, log.userAgent, JSON.stringify(log.details || {}), log.errorMessage]),
+    };
+    const data = { sections: [section] };
+    const date = new Date().toISOString().slice(0, 10);
+    if (format === "excel") downloadFile(`qu-pos-user-logs-${date}.xls`, auditExcelHtml(data), "application/vnd.ms-excel;charset=utf-8");
+    else downloadFile(`qu-pos-user-logs-${date}.csv`, auditCsvText(data), "text/csv;charset=utf-8");
+}
+
+function auditCsvText({ sections }) {
+    const lines = [];
+    sections.forEach(section => {
+        lines.push(section.headers.map(csvCell).join(","));
+        section.rows.forEach(row => lines.push(row.map(csvCell).join(",")));
+    });
+    return lines.join("\r\n");
+}
+
+function auditExcelHtml({ sections }) {
+    const tables = sections.map(section => `<h1>${escapeHtml(section.section)}</h1><table><tr>${section.headers.map(cell => `<th>${escapeHtml(cell)}</th>`).join("")}</tr>${section.rows.map(row => `<tr>${row.map(cell => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`).join("")}</table>`).join("");
+    return `<!doctype html><html><head><meta charset="utf-8"></head><body>${tables}</body></html>`;
 }
 
 async function loadRolePermissions() {
@@ -2603,12 +2995,14 @@ async function loadUsers() {
         return;
     }
     list.innerHTML = payload.users.map(user => `
-        <div class="report-item">
-            <div>
-                <strong>${escapeHtml(user.displayName)}</strong><br>
-                <span class="subtle">${escapeHtml(user.email)} • ${escapeHtml(user.roleLabel || roleLabel(user.role))} • ${user.isActive ? "Active" : "Disabled"} • 2FA ${user.twoFactorEnabled ? "On" : "Not Set Up"}</span>
+        <div class="report-item user-management-item">
+            <div class="user-identity-editor">
+                <label>Name<input class="text-input" data-user-name="${user.id}" value="${escapeHtml(user.displayName)}"></label>
+                <label>Email<input class="text-input" data-user-email="${user.id}" type="email" value="${escapeHtml(user.email)}"></label>
+                <span class="subtle">${escapeHtml(user.roleLabel || roleLabel(user.role))} • ${user.isActive ? "Active" : "Disabled"} • 2FA ${user.twoFactorEnabled ? "On" : "Not Set Up"}${user.lockedUntil && new Date(user.lockedUntil) > new Date() ? ` • Locked until ${escapeHtml(new Date(user.lockedUntil).toLocaleString())}` : ""}${user.lastLoginAt ? ` • Last login ${escapeHtml(new Date(user.lastLoginAt).toLocaleString())}` : ""}</span>
             </div>
             <div class="row-actions">
+                <button class="btn" data-save-identity="${user.id}">Save Name / Email</button>
                 <select class="text-input role-select" data-role-user-id="${user.id}">
                     <option value="tech" ${user.role === "tech" ? "selected" : ""}>Tech</option>
                     <option value="read_only" ${user.role === "read_only" ? "selected" : ""}>Read-Only</option>
@@ -2622,6 +3016,9 @@ async function loadUsers() {
     list.querySelectorAll("select[data-role-user-id]").forEach(select => {
         select.addEventListener("change", () => setUserRole(select.dataset.roleUserId, select.value));
     });
+    list.querySelectorAll("button[data-save-identity]").forEach(button => {
+        button.addEventListener("click", () => updateUserIdentity(button.dataset.saveIdentity));
+    });
     list.querySelectorAll("button[data-user-id]").forEach(button => {
         button.addEventListener("click", () => setUserActive(button.dataset.userId, button.dataset.active === "1"));
     });
@@ -2631,6 +3028,18 @@ async function loadUsers() {
     list.querySelectorAll("button[data-delete-user]").forEach(button => {
         button.addEventListener("click", () => deleteUser(button.dataset.deleteUser));
     });
+}
+
+async function updateUserIdentity(id) {
+    const displayName = document.querySelector(`input[data-user-name="${CSS.escape(String(id))}"]`)?.value || "";
+    const email = document.querySelector(`input[data-user-email="${CSS.escape(String(id))}"]`)?.value || "";
+    const response = await fetch("api/users.php?action=update-identity", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, displayName, email }),
+    });
+    const payload = await parseJsonResponse(response);
+    if (!payload.ok) return alert(payload.error || "Could not update the user's name or email.");
+    if (Number(id) === Number(state.user?.id)) await refreshAuthStatus();
+    await loadUsers();
 }
 
 async function createUser(event) {

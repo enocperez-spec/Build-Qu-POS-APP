@@ -14,4 +14,10 @@ return [
     'automation' => [
         'import_token' => '',
     ],
+    'mail' => [
+        'enabled' => false,
+        'from_address' => 'no-reply@qupostech.com',
+        'from_name' => 'QU POS Application Version Tools',
+        'base_url' => 'https://quposapp.qupostech.com',
+    ],
 ];

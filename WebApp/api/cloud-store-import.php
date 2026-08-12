@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/Database.php';
 require_once __DIR__ . '/CsvReader.php';
+require_once __DIR__ . '/SecurityService.php';
 
 header('Content-Type: application/json');
 
@@ -37,9 +38,13 @@ try {
         exit;
     }
 
+    $pdo = Database::fromConfig();
+    if ($pdo) Database::initialize($pdo);
+
     $expectedToken = storeAutomationToken();
     $providedToken = storeRequestBearerToken();
     if ($expectedToken === '' || $providedToken === '' || !hash_equals($expectedToken, $providedToken)) {
+        if ($pdo instanceof PDO) SecurityService::audit($pdo, null, 'automation', 'Automated Store Information CSV import authentication', 'automation_endpoint', 'cloud-store-import', 'cloud-store-import', 'blocked', [], 'Invalid automation token.');
         http_response_code(401);
         echo json_encode(['ok' => false, 'error' => 'Unauthorized.']);
         exit;
@@ -50,7 +55,6 @@ try {
         throw new RuntimeException('Upload a storeCsv file.');
     }
 
-    $pdo = Database::fromConfig();
     if (!$pdo) {
         throw new RuntimeException('Database configuration is required for store imports.');
     }
@@ -78,6 +82,9 @@ try {
     ], Database::JOB_STORES);
     Database::releaseApiLock($pdo, Database::JOB_STORES);
     $lockAcquired = false;
+    SecurityService::audit($pdo, null, 'automation', 'Automated Store Information CSV import', 'store_import', (string)$importId, (string)$uploadedFile['name'], 'successful', [
+        'triggerType' => $triggerType, 'attempts' => max(1, $attempts), 'recordsReceived' => count($rows),
+    ]);
 
     echo json_encode(['ok' => true, 'importId' => $importId, 'rowCount' => count($rows)]);
 } catch (Throwable $exception) {
@@ -90,6 +97,11 @@ try {
     }
     if ($pdo instanceof PDO && !empty($lockAcquired)) {
         Database::releaseApiLock($pdo, Database::JOB_STORES);
+    }
+    if ($pdo instanceof PDO) {
+        SecurityService::audit($pdo, null, 'automation', 'Automated Store Information CSV import', 'csv_file', null, $uploadedFile['name'] ?? null, 'failed', [
+            'triggerType' => $triggerType ?? 'Scheduled', 'attempts' => $attempts ?? 1,
+        ], $exception->getMessage());
     }
     http_response_code(400);
     echo json_encode(['ok' => false, 'error' => $exception->getMessage()]);

@@ -30,7 +30,10 @@ try {
     }
 
     if ($action === 'save-permissions') {
-        Database::setRolePermissions($pdo, (string)($input['role'] ?? ''), (array)($input['permissions'] ?? []));
+        $role = (string)($input['role'] ?? '');
+        $permissions = (array)($input['permissions'] ?? []);
+        Database::setRolePermissions($pdo, $role, $permissions);
+        SecurityService::audit($pdo, $actingUser, 'permissions', 'Role permissions updated', 'role', Database::normalizeRole($role), Database::roleLabel($role), 'successful', ['permissions' => $permissions]);
         echo json_encode(['ok' => true, 'permissions' => Database::listRolePermissions($pdo)]);
         exit;
     }
@@ -41,13 +44,19 @@ try {
     }
 
     if ($action === 'add-schedule') {
-        Database::addApiSchedule($pdo, (string)($input['scheduledTime'] ?? ''), (string)($input['jobKey'] ?? Database::JOB_TERMINALS));
+        $jobKey = (string)($input['jobKey'] ?? Database::JOB_TERMINALS);
+        $scheduledTime = (string)($input['scheduledTime'] ?? '');
+        Database::addApiSchedule($pdo, $scheduledTime, $jobKey);
+        SecurityService::audit($pdo, $actingUser, 'automation', 'Automation schedule added', 'automation_job', $jobKey, $jobKey, 'successful', ['scheduledTime' => $scheduledTime]);
         echo json_encode(['ok' => true, 'schedules' => Database::listApiSchedules($pdo)]);
         exit;
     }
 
     if ($action === 'update-schedule') {
-        Database::updateApiSchedule($pdo, (int)($input['id'] ?? 0), (string)($input['scheduledTime'] ?? ''));
+        $id = (int)($input['id'] ?? 0);
+        $scheduledTime = (string)($input['scheduledTime'] ?? '');
+        Database::updateApiSchedule($pdo, $id, $scheduledTime);
+        SecurityService::audit($pdo, $actingUser, 'automation', 'Automation schedule updated', 'api_schedule', (string)$id, "Schedule $id", 'successful', ['scheduledTime' => $scheduledTime]);
         echo json_encode(['ok' => true, 'schedules' => Database::listApiSchedules($pdo)]);
         exit;
     }
@@ -70,6 +79,7 @@ try {
                 'attempts' => 1,
                 'durationMs' => (int)((microtime(true) - $started) * 1000),
             ], $jobKey);
+            SecurityService::audit($pdo, $actingUser, 'process_run', 'Manual QU EI retrieval run', 'automation_job', $jobKey, $jobKey, 'successful', ['durationMs' => (int)((microtime(true) - $started) * 1000)]);
             echo json_encode(['ok' => true, 'message' => 'Manual retrieval request logged.', 'logs' => Database::listApiLogs($pdo)]);
             exit;
         } finally {
@@ -79,6 +89,9 @@ try {
 
     throw new RuntimeException('Unknown settings action.');
 } catch (Throwable $exception) {
+    if (isset($pdo, $actingUser, $action) && $pdo instanceof PDO && !in_array($action, ['overview', 'permissions', 'schedules', 'api-logs'], true)) {
+        SecurityService::audit($pdo, $actingUser, 'settings', 'Settings action failed', 'settings_action', (string)$action, (string)$action, 'failed', [], $exception->getMessage());
+    }
     http_response_code(400);
     echo json_encode(['ok' => false, 'error' => $exception->getMessage()]);
 }

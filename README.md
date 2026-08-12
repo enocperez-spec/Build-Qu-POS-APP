@@ -23,8 +23,12 @@ alerts, and historical comparisons.
   type, and last-seen data.
 - Includes user login, two-factor authentication, and role-based access for
   admin, tech, and read-only users.
+- Protects accounts with configurable lockouts, independent login rate limits,
+  expiring single-use password-reset links, 2FA recovery codes, security
+  notifications, and session invalidation after sensitive account changes.
 - Includes an Admin-only Settings area for users, role permissions, QU EI API
-  logs, and configurable API call times.
+  logs, configurable API call times, and searchable read-only User Logs with
+  filters, sorting, pagination, and CSV or Excel export.
 - Includes optional cloud automation templates for exporting terminals from QU
   Admin and importing the CSV into the web app.
 - Includes QU EI Store Information synchronization with SQL storage for the
@@ -54,7 +58,7 @@ alerts, and historical comparisons.
 
 ## Release Notes
 
-The current application version is `v007.03`.
+The current application version is `v007.04`.
 
 Release history is tracked in [docs/FEATURE_RELEASES.md](docs/FEATURE_RELEASES.md).
 Every completed request receives the next version number and remains available

@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS users (
     two_factor_confirmed_at DATETIME NULL,
     role VARCHAR(40) NOT NULL DEFAULT 'tech',
     is_active TINYINT(1) NOT NULL DEFAULT 1,
+    auth_version INT UNSIGNED NOT NULL DEFAULT 1,
     created_at DATETIME NOT NULL,
     updated_at DATETIME NOT NULL,
     INDEX idx_users_role (role),
@@ -182,3 +183,84 @@ CREATE TABLE IF NOT EXISTS device_health_cache (
     created_at DATETIME NOT NULL,
     INDEX idx_device_health_cache_created (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS security_settings (
+    id TINYINT UNSIGNED PRIMARY KEY,
+    failed_attempt_threshold TINYINT UNSIGNED NOT NULL DEFAULT 5,
+    lockout_duration_minutes SMALLINT UNSIGNED NOT NULL DEFAULT 15,
+    login_rate_limit_attempts SMALLINT UNSIGNED NOT NULL DEFAULT 20,
+    login_rate_limit_window_minutes SMALLINT UNSIGNED NOT NULL DEFAULT 15,
+    password_reset_expiry_minutes SMALLINT UNSIGNED NOT NULL DEFAULT 60,
+    updated_by_user_id INT UNSIGNED NULL,
+    updated_at DATETIME NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS login_rate_limits (
+    scope VARCHAR(40) NOT NULL,
+    key_hash CHAR(64) NOT NULL,
+    attempts SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+    window_started_at DATETIME NOT NULL,
+    blocked_until DATETIME NULL,
+    updated_at DATETIME NOT NULL,
+    PRIMARY KEY (scope, key_hash),
+    INDEX idx_login_rate_limits_updated (updated_at),
+    INDEX idx_login_rate_limits_blocked (blocked_until)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id INT UNSIGNED NOT NULL,
+    token_hash CHAR(64) NOT NULL,
+    requested_ip VARCHAR(80) NULL,
+    expires_at DATETIME NOT NULL,
+    used_at DATETIME NULL,
+    created_at DATETIME NOT NULL,
+    UNIQUE KEY uq_password_reset_token_hash (token_hash),
+    INDEX idx_password_reset_user (user_id),
+    INDEX idx_password_reset_expiry (expires_at),
+    CONSTRAINT fk_password_reset_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS two_factor_recovery_codes (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id INT UNSIGNED NOT NULL,
+    code_hash VARCHAR(255) NOT NULL,
+    used_at DATETIME NULL,
+    created_at DATETIME NOT NULL,
+    INDEX idx_recovery_codes_user (user_id),
+    CONSTRAINT fk_recovery_codes_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    occurred_at DATETIME NOT NULL,
+    user_id INT UNSIGNED NULL,
+    user_name VARCHAR(160) NULL,
+    user_email VARCHAR(255) NULL,
+    action_type VARCHAR(80) NOT NULL,
+    action VARCHAR(160) NOT NULL,
+    target_type VARCHAR(80) NULL,
+    target_id VARCHAR(120) NULL,
+    target_label VARCHAR(255) NULL,
+    result_status VARCHAR(20) NOT NULL,
+    ip_address VARCHAR(80) NULL,
+    user_agent VARCHAR(500) NULL,
+    details_json JSON NULL,
+    error_message TEXT NULL,
+    INDEX idx_audit_occurred (occurred_at),
+    INDEX idx_audit_user (user_id),
+    INDEX idx_audit_action_type (action_type),
+    INDEX idx_audit_status (result_status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_login_attempts SMALLINT UNSIGNED NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_failed_login_at DATETIME NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_until DATETIME NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at DATETIME NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS password_changed_at DATETIME NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS auth_version INT UNSIGNED NOT NULL DEFAULT 1;
+
+INSERT IGNORE INTO security_settings (
+    id, failed_attempt_threshold, lockout_duration_minutes, login_rate_limit_attempts,
+    login_rate_limit_window_minutes, password_reset_expiry_minutes, updated_at
+) VALUES (1, 5, 15, 20, 15, 60, NOW());

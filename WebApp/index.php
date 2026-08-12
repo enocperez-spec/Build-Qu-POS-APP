@@ -3,6 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="referrer" content="no-referrer">
     <title>QU POS Application Version Tools</title>
     <?php
         $assetVersion = static fn(string $path): string => is_file(__DIR__ . '/' . $path) ? (string)filemtime(__DIR__ . '/' . $path) : (string)time();

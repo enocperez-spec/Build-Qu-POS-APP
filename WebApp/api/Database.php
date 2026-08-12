@@ -91,6 +91,7 @@ final class Database
                 two_factor_confirmed_at DATETIME NULL,
                 role VARCHAR(40) NOT NULL DEFAULT 'tech',
                 is_active TINYINT(1) NOT NULL DEFAULT 1,
+                auth_version INT UNSIGNED NOT NULL DEFAULT 1,
                 created_at DATETIME NOT NULL,
                 updated_at DATETIME NOT NULL,
                 INDEX idx_users_role (role),
@@ -246,11 +247,97 @@ final class Database
                 INDEX idx_device_health_cache_created (created_at)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
         );
+        $pdo->exec(
+            "CREATE TABLE IF NOT EXISTS security_settings (
+                id TINYINT UNSIGNED PRIMARY KEY,
+                failed_attempt_threshold TINYINT UNSIGNED NOT NULL DEFAULT 5,
+                lockout_duration_minutes SMALLINT UNSIGNED NOT NULL DEFAULT 15,
+                login_rate_limit_attempts SMALLINT UNSIGNED NOT NULL DEFAULT 20,
+                login_rate_limit_window_minutes SMALLINT UNSIGNED NOT NULL DEFAULT 15,
+                password_reset_expiry_minutes SMALLINT UNSIGNED NOT NULL DEFAULT 60,
+                updated_by_user_id INT UNSIGNED NULL,
+                updated_at DATETIME NOT NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+        );
+        $pdo->exec(
+            "CREATE TABLE IF NOT EXISTS login_rate_limits (
+                scope VARCHAR(40) NOT NULL,
+                key_hash CHAR(64) NOT NULL,
+                attempts SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+                window_started_at DATETIME NOT NULL,
+                blocked_until DATETIME NULL,
+                updated_at DATETIME NOT NULL,
+                PRIMARY KEY (scope, key_hash),
+                INDEX idx_login_rate_limits_updated (updated_at),
+                INDEX idx_login_rate_limits_blocked (blocked_until)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+        );
+        $pdo->exec(
+            "CREATE TABLE IF NOT EXISTS password_reset_tokens (
+                id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                user_id INT UNSIGNED NOT NULL,
+                token_hash CHAR(64) NOT NULL,
+                requested_ip VARCHAR(80) NULL,
+                expires_at DATETIME NOT NULL,
+                used_at DATETIME NULL,
+                created_at DATETIME NOT NULL,
+                UNIQUE KEY uq_password_reset_token_hash (token_hash),
+                INDEX idx_password_reset_user (user_id),
+                INDEX idx_password_reset_expiry (expires_at),
+                CONSTRAINT fk_password_reset_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+        );
+        $pdo->exec(
+            "CREATE TABLE IF NOT EXISTS two_factor_recovery_codes (
+                id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                user_id INT UNSIGNED NOT NULL,
+                code_hash VARCHAR(255) NOT NULL,
+                used_at DATETIME NULL,
+                created_at DATETIME NOT NULL,
+                INDEX idx_recovery_codes_user (user_id),
+                CONSTRAINT fk_recovery_codes_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+        );
+        $pdo->exec(
+            "CREATE TABLE IF NOT EXISTS audit_logs (
+                id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                occurred_at DATETIME NOT NULL,
+                user_id INT UNSIGNED NULL,
+                user_name VARCHAR(160) NULL,
+                user_email VARCHAR(255) NULL,
+                action_type VARCHAR(80) NOT NULL,
+                action VARCHAR(160) NOT NULL,
+                target_type VARCHAR(80) NULL,
+                target_id VARCHAR(120) NULL,
+                target_label VARCHAR(255) NULL,
+                result_status VARCHAR(20) NOT NULL,
+                ip_address VARCHAR(80) NULL,
+                user_agent VARCHAR(500) NULL,
+                details_json JSON NULL,
+                error_message TEXT NULL,
+                INDEX idx_audit_occurred (occurred_at),
+                INDEX idx_audit_user (user_id),
+                INDEX idx_audit_action_type (action_type),
+                INDEX idx_audit_status (result_status)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+        );
         $pdo->exec("ALTER TABLE reports ADD COLUMN IF NOT EXISTS current_upload_id INT UNSIGNED NULL");
         $pdo->exec("ALTER TABLE reports ADD COLUMN IF NOT EXISTS previous_upload_id INT UNSIGNED NULL");
         self::addColumnIfMissing($pdo, 'users', 'two_factor_secret', 'VARCHAR(64) NULL');
         self::addColumnIfMissing($pdo, 'users', 'two_factor_enabled', 'TINYINT(1) NOT NULL DEFAULT 0');
         self::addColumnIfMissing($pdo, 'users', 'two_factor_confirmed_at', 'DATETIME NULL');
+        self::addColumnIfMissing($pdo, 'users', 'failed_login_attempts', 'SMALLINT UNSIGNED NOT NULL DEFAULT 0');
+        self::addColumnIfMissing($pdo, 'users', 'last_failed_login_at', 'DATETIME NULL');
+        self::addColumnIfMissing($pdo, 'users', 'locked_until', 'DATETIME NULL');
+        self::addColumnIfMissing($pdo, 'users', 'last_login_at', 'DATETIME NULL');
+        self::addColumnIfMissing($pdo, 'users', 'password_changed_at', 'DATETIME NULL');
+        self::addColumnIfMissing($pdo, 'users', 'auth_version', 'INT UNSIGNED NOT NULL DEFAULT 1');
+        $pdo->exec(
+            "INSERT IGNORE INTO security_settings (
+                id, failed_attempt_threshold, lockout_duration_minutes, login_rate_limit_attempts,
+                login_rate_limit_window_minutes, password_reset_expiry_minutes, updated_at
+            ) VALUES (1, 5, 15, 20, 15, 60, NOW())"
+        );
         self::seedRolePermissions($pdo);
         self::seedApiSchedules($pdo);
     }
@@ -575,8 +662,8 @@ final class Database
         if ($displayName === '') {
             throw new RuntimeException('Enter a display name.');
         }
-        if (strlen($password) < 10) {
-            throw new RuntimeException('Password must be at least 10 characters.');
+        if (strlen($password) < 12 || !preg_match('/[A-Z]/', $password) || !preg_match('/[a-z]/', $password) || !preg_match('/\d/', $password)) {
+            throw new RuntimeException('Password must be at least 12 characters and include uppercase, lowercase, and a number.');
         }
         if (self::emailExists($pdo, $email)) {
             throw new RuntimeException('A user with this email address already exists.');
@@ -615,7 +702,7 @@ final class Database
     public static function listUsers(PDO $pdo): array
     {
         self::initialize($pdo);
-        $statement = $pdo->query("SELECT id, email, display_name, role, is_active, two_factor_enabled, created_at FROM users ORDER BY created_at DESC");
+        $statement = $pdo->query("SELECT id, email, display_name, role, is_active, two_factor_enabled, failed_login_attempts, locked_until, last_login_at, created_at FROM users ORDER BY created_at DESC");
         return array_map(static fn(array $row): array => [
             'id' => (int)$row['id'],
             'email' => $row['email'],
@@ -624,8 +711,54 @@ final class Database
             'roleLabel' => self::roleLabel((string)$row['role']),
             'isActive' => (bool)$row['is_active'],
             'twoFactorEnabled' => (bool)$row['two_factor_enabled'],
+            'failedLoginAttempts' => (int)$row['failed_login_attempts'],
+            'lockedUntil' => $row['locked_until'] ? date('c', strtotime($row['locked_until'])) : null,
+            'lastLoginAt' => $row['last_login_at'] ? date('c', strtotime($row['last_login_at'])) : null,
             'createdAt' => date('c', strtotime($row['created_at'])),
         ], $statement->fetchAll());
+    }
+
+    public static function getUser(PDO $pdo, int $id): ?array
+    {
+        self::initialize($pdo);
+        $statement = $pdo->prepare(
+            "SELECT id, email, display_name, role, is_active, two_factor_enabled, failed_login_attempts,
+                    locked_until, last_login_at, created_at FROM users WHERE id = :id LIMIT 1"
+        );
+        $statement->execute([':id' => $id]);
+        $row = $statement->fetch();
+        if (!$row) return null;
+        return [
+            'id' => (int)$row['id'],
+            'email' => $row['email'],
+            'displayName' => $row['display_name'],
+            'role' => self::normalizeRole((string)$row['role']),
+            'roleLabel' => self::roleLabel((string)$row['role']),
+            'isActive' => (bool)$row['is_active'],
+            'twoFactorEnabled' => (bool)$row['two_factor_enabled'],
+            'failedLoginAttempts' => (int)$row['failed_login_attempts'],
+            'lockedUntil' => $row['locked_until'] ? date('c', strtotime($row['locked_until'])) : null,
+            'lastLoginAt' => $row['last_login_at'] ? date('c', strtotime($row['last_login_at'])) : null,
+            'createdAt' => date('c', strtotime($row['created_at'])),
+        ];
+    }
+
+    public static function updateUserIdentity(PDO $pdo, int $id, string $displayName, string $email): array
+    {
+        self::initialize($pdo);
+        $displayName = trim($displayName);
+        $email = strtolower(trim($email));
+        if ($id <= 0) throw new RuntimeException('Invalid user ID.');
+        if ($displayName === '') throw new RuntimeException('Enter a display name.');
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) throw new RuntimeException('Enter a valid email address.');
+        $current = self::getUser($pdo, $id);
+        if (!$current) throw new RuntimeException('User not found.');
+        $statement = $pdo->prepare("SELECT COUNT(*) FROM users WHERE email = :email AND id <> :id");
+        $statement->execute([':email' => $email, ':id' => $id]);
+        if ((int)$statement->fetchColumn() > 0) throw new RuntimeException('A user with this email address already exists.');
+        $statement = $pdo->prepare("UPDATE users SET display_name = :display_name, email = :email, auth_version = auth_version + 1, updated_at = :updated_at WHERE id = :id");
+        $statement->execute([':display_name' => $displayName, ':email' => $email, ':updated_at' => date('Y-m-d H:i:s'), ':id' => $id]);
+        return self::getUser($pdo, $id) ?? throw new RuntimeException('User could not be reloaded.');
     }
 
     public static function listRolePermissions(PDO $pdo): array
@@ -864,7 +997,7 @@ final class Database
         if (!$isActive && self::normalizeRole((string)$user['role']) === self::ROLE_ADMIN && self::activeAdminCount($pdo) <= 1) {
             throw new RuntimeException('At least one active admin is required.');
         }
-        $statement = $pdo->prepare("UPDATE users SET is_active = :is_active, updated_at = :updated_at WHERE id = :id");
+        $statement = $pdo->prepare("UPDATE users SET is_active = :is_active, auth_version = auth_version + 1, updated_at = :updated_at WHERE id = :id");
         $statement->execute([
             ':id' => $id,
             ':is_active' => $isActive ? 1 : 0,
@@ -890,7 +1023,7 @@ final class Database
         if ($currentRole === self::ROLE_ADMIN && $role !== self::ROLE_ADMIN && (bool)$user['is_active'] && self::activeAdminCount($pdo) <= 1) {
             throw new RuntimeException('At least one active admin is required.');
         }
-        $statement = $pdo->prepare("UPDATE users SET role = :role, updated_at = :updated_at WHERE id = :id");
+        $statement = $pdo->prepare("UPDATE users SET role = :role, auth_version = auth_version + 1, updated_at = :updated_at WHERE id = :id");
         $statement->execute([
             ':id' => $id,
             ':role' => $role,
@@ -929,6 +1062,7 @@ final class Database
              SET two_factor_secret = :secret,
                  two_factor_enabled = :enabled,
                  two_factor_confirmed_at = :confirmed_at,
+                 auth_version = auth_version + 1,
                  updated_at = :updated_at
              WHERE id = :id"
         );

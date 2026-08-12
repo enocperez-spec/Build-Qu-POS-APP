@@ -22,12 +22,19 @@ try {
     if (!$pdo) {
         throw new RuntimeException('Database configuration is required for CSV uploads.');
     }
-    Auth::requireSection($pdo, Database::SECTION_UPLOAD);
+    $actingUser = Auth::requireSection($pdo, Database::SECTION_UPLOAD);
     $result = ReportService::generate($_FILES['currentCsv'], null, dirname(__DIR__), $pdo);
     Database::saveReport($pdo, $result);
+    SecurityService::audit($pdo, $actingUser, 'file_upload', 'Terminal CSV uploaded and report generated', 'csv_upload', (string)($result['currentUploadId'] ?? ''), (string)$_FILES['currentCsv']['name'], 'successful', [
+        'terminalCount' => (int)($result['report']['summary']['posAppTerminals'] ?? 0),
+        'reportName' => $result['htmlFile'] ?? null,
+    ]);
     $result['databaseSaved'] = true;
     echo json_encode(['ok' => true] + $result);
 } catch (Throwable $exception) {
+    if (isset($pdo, $actingUser) && $pdo instanceof PDO) {
+        SecurityService::audit($pdo, $actingUser, 'file_upload', 'Terminal CSV upload and report generation', 'csv_file', null, $_FILES['currentCsv']['name'] ?? null, 'failed', [], $exception->getMessage());
+    }
     http_response_code(400);
     echo json_encode(['ok' => false, 'error' => $exception->getMessage()]);
 }
