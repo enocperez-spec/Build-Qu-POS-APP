@@ -1933,6 +1933,92 @@ details.version-detail summary span {
     margin: 0;
 }
 
+.health-store-search-card {
+    display: grid;
+    gap: 20px;
+    border: 1px solid var(--health-border);
+    border-radius: 14px;
+    background:
+        radial-gradient(circle at 92% 8%, rgba(35, 199, 255, .12), transparent 34%),
+        var(--health-surface);
+    padding: clamp(22px, 3vw, 38px);
+}
+
+.health-store-search-intro {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    max-width: 850px;
+}
+
+.health-store-search-icon {
+    width: 58px;
+    height: 58px;
+    display: grid;
+    flex: 0 0 auto;
+    place-items: center;
+    border: 1px solid rgba(35, 199, 255, .62);
+    border-radius: 14px;
+    background: rgba(35, 199, 255, .09);
+    color: var(--cyan);
+}
+
+.health-store-search-icon svg {
+    width: 32px;
+    height: 32px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.health-store-search-intro h3 {
+    color: #f5f9ff;
+    font-size: clamp(20px, 2vw, 28px);
+    margin: 0 0 6px;
+}
+
+.health-store-search-intro p {
+    color: var(--muted);
+    line-height: 1.5;
+    margin: 0;
+}
+
+.health-store-landing-finder {
+    grid-template-columns: auto minmax(280px, 1fr) minmax(160px, 210px) auto;
+    border-top: 1px solid var(--health-soft-border);
+    padding-top: 20px;
+}
+
+.health-store-period-field {
+    display: grid;
+    gap: 6px;
+}
+
+.health-store-period-field span {
+    color: #9ab8d4;
+    font-size: 11px;
+}
+
+.health-store-period-field select {
+    min-height: 43px;
+}
+
+.health-store-search-empty {
+    display: grid;
+    gap: 4px;
+    border: 1px dashed rgba(57, 130, 181, .48);
+    border-radius: 10px;
+    color: var(--muted);
+    padding: 18px;
+    text-align: center;
+}
+
+.health-store-search-empty strong {
+    color: #cceeff;
+}
+
 .health-search-results {
     display: grid;
     gap: 6px;
@@ -2156,6 +2242,14 @@ details.version-detail summary span {
     .health-store-name {
         grid-column: span 2;
     }
+
+    .health-store-landing-finder {
+        grid-template-columns: 1fr minmax(160px, 220px) auto;
+    }
+
+    .health-store-landing-finder > label:first-child {
+        grid-column: 1 / -1;
+    }
 }
 
 @media (max-width: 760px) {
@@ -2180,6 +2274,14 @@ details.version-detail summary span {
 
     .health-store-finder {
         grid-template-columns: 1fr;
+    }
+
+    .health-store-landing-finder {
+        grid-template-columns: 1fr;
+    }
+
+    .health-store-search-intro {
+        align-items: flex-start;
     }
 
     .health-store-hero {

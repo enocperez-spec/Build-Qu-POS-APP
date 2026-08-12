@@ -515,6 +515,14 @@ const FEATURE_RELEASES = [
         type: "Feature",
         status: "Released",
     },
+    {
+        version: "v007.02",
+        releasedAt: "August 12, 2026 00:34 EST",
+        title: "Store Health Navigation",
+        description: "Added a dedicated Store Health navigation page with direct store search, reporting-period selection, and scorecard routing while preserving the fleet-level Device Health dashboard.",
+        type: "Improvement",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
@@ -653,6 +661,7 @@ function shell(content, page = state.currentPage || "dashboard") {
                 ${uploadNav}
                 ${canAccess("alerts") ? `<button class="${navClass("alerts")}" id="alertsNavBtn">Alerts</button>` : ""}
                 ${canAccess("device_health") ? `<button class="${navClass("deviceHealth")}" id="deviceHealthNavBtn">Device Health</button>` : ""}
+                ${canAccess("device_health") ? `<button class="${navClass("storeHealth")}" id="storeHealthNavBtn">Store Health</button>` : ""}
                 ${settingsNav}
             </aside>
             <main class="main">${content}${footer()}</main>
@@ -1101,6 +1110,7 @@ function bindShell() {
     document.getElementById("uploadNavBtn")?.addEventListener("click", renderUploadPage);
     document.getElementById("alertsNavBtn")?.addEventListener("click", renderAlertsPage);
     document.getElementById("deviceHealthNavBtn")?.addEventListener("click", renderDeviceHealthPage);
+    document.getElementById("storeHealthNavBtn")?.addEventListener("click", renderStoreHealthPage);
     document.getElementById("settingsNavBtn")?.addEventListener("click", () => renderSettings("users"));
     bindFooter();
 }
@@ -1401,6 +1411,69 @@ async function renderDeviceHealthPage() {
         </div>`, "deviceHealth");
     bindShell();
     await loadDeviceHealthDashboard();
+}
+
+function renderStoreHealthPage() {
+    if (!canAccess("device_health")) {
+        renderHome();
+        return;
+    }
+    state.currentPage = "storeHealth";
+    state.deviceHealthStore = null;
+    app.innerHTML = shell(header() + `
+        <section class="device-health-page health-store-landing-page">
+            <div class="health-page-heading">
+                <div>
+                    <h2>Store Health</h2>
+                    <p>Search for a store to open its device health scorecard.</p>
+                </div>
+                <div class="health-updated">
+                    <span class="health-live-dot" aria-hidden="true"></span>
+                    <span>Historical terminal CSV snapshots</span>
+                </div>
+            </div>
+
+            <section class="health-store-search-card">
+                <div class="health-store-search-intro">
+                    <span class="health-store-search-icon" aria-hidden="true">${metricIcon("terminals")}</span>
+                    <div>
+                        <h3>Open a Store Device Health Scorecard</h3>
+                        <p>Search by Store ID, Store Name, or Brand to review every reporting device, its current status, and historical health score.</p>
+                    </div>
+                </div>
+                <form class="health-store-finder health-store-landing-finder" id="healthStoreFinderForm">
+                    <label for="healthStoreFinder">Find a Store</label>
+                    <input class="text-input" id="healthStoreFinder" type="search" placeholder="Enter a Store ID, Store Name, or Brand" autocomplete="off" autofocus>
+                    <label class="health-store-period-field" for="storeHealthDays">
+                        <span>Reporting Period</span>
+                        <select id="storeHealthDays">
+                            ${[7, 30, 60, 90].map(days => `<option value="${days}"${state.deviceHealthDays === days ? " selected" : ""}>Last ${days} Days</option>`).join("")}
+                        </select>
+                    </label>
+                    <button class="btn" type="submit">Search Stores</button>
+                </form>
+                <div id="healthStoreSearchResults">
+                    <div class="health-store-search-empty">
+                        <strong>Ready to search</strong>
+                        <span>Selecting a result opens the complete Store Device Health Scorecard.</span>
+                    </div>
+                </div>
+            </section>
+        </section>`, "storeHealth");
+    bindShell();
+    bindStoreHealthLanding();
+    scrollPageToTop();
+}
+
+function bindStoreHealthLanding() {
+    document.getElementById("healthStoreFinderForm")?.addEventListener("submit", searchDeviceHealthStores);
+    document.getElementById("storeHealthDays")?.addEventListener("change", event => {
+        state.deviceHealthDays = Number(event.target.value) || 30;
+        const results = document.getElementById("healthStoreSearchResults");
+        if (results) {
+            results.innerHTML = `<div class="health-store-search-empty"><strong>Reporting period updated</strong><span>Search for a store to build its ${escapeHtml(state.deviceHealthDays)}-day scorecard.</span></div>`;
+        }
+    });
 }
 
 async function loadDeviceHealthDashboard() {
@@ -1704,12 +1777,12 @@ function bindDeviceHealthDashboard() {
     document.getElementById("exportDeviceHealthBtn")?.addEventListener("click", exportDeviceHealthCsv);
 }
 
-async function renderDeviceHealthStore(storeId) {
-    state.currentPage = "deviceHealth";
+async function renderDeviceHealthStore(storeId, returnPage = state.currentPage === "storeHealth" ? "storeHealth" : "deviceHealth") {
+    state.currentPage = returnPage;
     app.innerHTML = shell(header() + `
         <div id="deviceHealthMount">
             <section class="health-loading-state"><span class="health-loading-ring" aria-hidden="true"></span><strong>Building store scorecard...</strong></section>
-        </div>`, "deviceHealth");
+        </div>`, returnPage);
     bindShell();
     const params = new URLSearchParams({ action: "store", days: String(state.deviceHealthDays), storeId: String(storeId || "") });
     try {
@@ -1717,8 +1790,8 @@ async function renderDeviceHealthStore(storeId) {
         const payload = await parseJsonResponse(response);
         if (!payload.ok) throw new Error(payload.error || "Could not load the store scorecard.");
         state.deviceHealthStore = payload.scorecard;
-        document.getElementById("deviceHealthMount").innerHTML = deviceHealthStoreView(payload.scorecard);
-        bindDeviceHealthStore();
+        document.getElementById("deviceHealthMount").innerHTML = deviceHealthStoreView(payload.scorecard, returnPage);
+        bindDeviceHealthStore(returnPage);
         drawStoreHealthGauge(document.getElementById("storeHealthGauge"), payload.scorecard.store.healthScore);
         scrollPageToTop();
     } catch (error) {
@@ -1726,14 +1799,14 @@ async function renderDeviceHealthStore(storeId) {
     }
 }
 
-function deviceHealthStoreView(scorecard) {
+function deviceHealthStoreView(scorecard, returnPage = "deviceHealth") {
     const store = scorecard.store || {};
     const period = scorecard.period || {};
     return `
         <section class="device-health-page health-scorecard-page">
             <div class="health-page-heading">
                 <div>
-                    <button class="health-back-btn" id="backToHealthDashboardBtn" type="button">Back to Device Health Dashboard</button>
+                    <button class="health-back-btn" id="backToHealthPageBtn" type="button">${returnPage === "storeHealth" ? "Back to Store Health Search" : "Back to Device Health Dashboard"}</button>
                     <h2>Store Device Health Scorecard</h2>
                     <p>${escapeHtml(period.days || 30)}-day device reporting health by store.</p>
                 </div>
@@ -1821,9 +1894,9 @@ function missingDataPanel(fields) {
         </section>`;
 }
 
-function bindDeviceHealthStore() {
-    document.getElementById("backToHealthDashboardBtn")?.addEventListener("click", renderDeviceHealthPage);
-    document.getElementById("refreshStoreHealthBtn")?.addEventListener("click", () => renderDeviceHealthStore(state.deviceHealthStore?.store?.storeId));
+function bindDeviceHealthStore(returnPage = "deviceHealth") {
+    document.getElementById("backToHealthPageBtn")?.addEventListener("click", returnPage === "storeHealth" ? renderStoreHealthPage : renderDeviceHealthPage);
+    document.getElementById("refreshStoreHealthBtn")?.addEventListener("click", () => renderDeviceHealthStore(state.deviceHealthStore?.store?.storeId, returnPage));
     document.getElementById("healthStoreFinderForm")?.addEventListener("submit", searchDeviceHealthStores);
 }
 
@@ -2180,6 +2253,10 @@ function navigateToPage(page) {
     }
     if (page === "deviceHealth") {
         renderDeviceHealthPage();
+        return;
+    }
+    if (page === "storeHealth") {
+        renderStoreHealthPage();
         return;
     }
     if (page === "settings" || page === "users") {

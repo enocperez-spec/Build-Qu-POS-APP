@@ -43,12 +43,16 @@ alerts, and historical comparisons.
   Information data is available.
 - Includes a protected store-status lookup endpoint for checking the latest QU
   EI operational status by store name or store ID.
+- Provides a fleet-level Device Health dashboard calculated from historical CSV
+  snapshots, including health trends, down-device counts, and version adoption.
+- Provides a dedicated Store Health navigation page for searching stores and
+  opening detailed device health scorecards.
 - Shows a polished top-right user profile card with role, dashboard last
   updated time, and logout action.
 
 ## Release Notes
 
-The current application version is `v006.00`.
+The current application version is `v007.02`.
 
 Release history is tracked in [docs/FEATURE_RELEASES.md](docs/FEATURE_RELEASES.md).
 Every completed request receives the next version number and remains available
