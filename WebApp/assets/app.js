@@ -14,6 +14,13 @@ const state = {
     uploadTab: "terminal",
     settingsTab: "users",
     currentPage: "dashboard",
+    deviceHealthDashboard: null,
+    deviceHealthStore: null,
+    deviceHealthDays: 30,
+    deviceHealthQuery: "",
+    deviceHealthPage: 1,
+    deviceHealthPageSize: 10,
+    deviceHealthChartObserver: null,
     releaseNotesReturnPage: "dashboard",
     baseReport: window.__QU_REPORT__ || null,
     brandFilter: { mode: "all", brand: "", combination: "", selectedBrands: [], match: "any" },
@@ -500,6 +507,14 @@ const FEATURE_RELEASES = [
         type: "Feature",
         status: "Released",
     },
+    {
+        version: "v007.01",
+        releasedAt: "August 12, 2026 00:02 EST",
+        title: "Device Health Dashboard Improvements",
+        description: "Added top-level and site-level Device Health dashboards based on the approved screenshots and mock-ups. Updated the dashboards to use accurate SQL data, removed unsupported region components, and added validation for device totals, health scores, status counts, version adoption, and brand filtering.",
+        type: "Feature",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
@@ -596,8 +611,8 @@ function canAccess(section) {
     if (!state.user) return false;
     if (state.user.role === "admin") return true;
     const fallback = {
-        tech: { dashboard: true, reports: true, upload: true, alerts: true, settings: false },
-        read_only: { dashboard: true, reports: true, upload: false, alerts: true, settings: false },
+        tech: { dashboard: true, reports: true, upload: true, alerts: true, device_health: true, settings: false },
+        read_only: { dashboard: true, reports: true, upload: false, alerts: true, device_health: true, settings: false },
     };
     return !!(state.user.permissions?.[section] ?? fallback[state.user.role]?.[section]);
 }
@@ -637,6 +652,7 @@ function shell(content, page = state.currentPage || "dashboard") {
                 ${canAccess("reports") ? `<button class="${navClass("reports")}" id="reportsNavBtn">View Reports</button>` : ""}
                 ${uploadNav}
                 ${canAccess("alerts") ? `<button class="${navClass("alerts")}" id="alertsNavBtn">Alerts</button>` : ""}
+                ${canAccess("device_health") ? `<button class="${navClass("deviceHealth")}" id="deviceHealthNavBtn">Device Health</button>` : ""}
                 ${settingsNav}
             </aside>
             <main class="main">${content}${footer()}</main>
@@ -1084,6 +1100,7 @@ function bindShell() {
     document.getElementById("dashboardNavBtn")?.addEventListener("click", renderHome);
     document.getElementById("uploadNavBtn")?.addEventListener("click", renderUploadPage);
     document.getElementById("alertsNavBtn")?.addEventListener("click", renderAlertsPage);
+    document.getElementById("deviceHealthNavBtn")?.addEventListener("click", renderDeviceHealthPage);
     document.getElementById("settingsNavBtn")?.addEventListener("click", () => renderSettings("users"));
     bindFooter();
 }
@@ -1367,6 +1384,737 @@ async function loadReports() {
         </section>`;
 }
 
+async function renderDeviceHealthPage() {
+    if (!canAccess("device_health")) {
+        renderHome();
+        return;
+    }
+    state.currentPage = "deviceHealth";
+    state.deviceHealthStore = null;
+    app.innerHTML = shell(header() + `
+        <div id="deviceHealthMount">
+            <section class="health-loading-state">
+                <span class="health-loading-ring" aria-hidden="true"></span>
+                <strong>Calculating 30-day device health...</strong>
+                <span>Reconciling historical SQL snapshots and distinct devices.</span>
+            </section>
+        </div>`, "deviceHealth");
+    bindShell();
+    await loadDeviceHealthDashboard();
+}
+
+async function loadDeviceHealthDashboard() {
+    const mount = document.getElementById("deviceHealthMount");
+    if (!mount) return;
+    const params = deviceHealthQueryParams("dashboard");
+    try {
+        const response = await fetch(`api/device-health.php?${params.toString()}`);
+        const payload = await parseJsonResponse(response);
+        if (!payload.ok) throw new Error(payload.error || "Could not load Device Health.");
+        state.deviceHealthDashboard = payload.dashboard;
+        const pageCount = Math.max(1, Math.ceil((payload.dashboard.stores?.length || 0) / state.deviceHealthPageSize));
+        state.deviceHealthPage = Math.min(state.deviceHealthPage, pageCount);
+        mount.innerHTML = deviceHealthDashboardView(payload.dashboard);
+        bindDeviceHealthDashboard();
+        renderDeviceHealthCharts();
+    } catch (error) {
+        mount.innerHTML = `<section class="empty health-error-state">${escapeHtml(error.message)}</section>`;
+    }
+}
+
+function deviceHealthQueryParams(action) {
+    const params = new URLSearchParams({
+        action,
+        days: String(state.deviceHealthDays),
+        mode: state.brandFilter.mode || "all",
+        brand: state.brandFilter.brand || "",
+        combination: state.brandFilter.combination || "",
+        selectedBrands: (state.brandFilter.selectedBrands || []).join("|"),
+        match: state.brandFilter.match || "any",
+        query: state.deviceHealthQuery || "",
+    });
+    return params;
+}
+
+function deviceHealthDashboardView(dashboard) {
+    const summary = dashboard.summary || {};
+    const period = dashboard.period || {};
+    const stores = dashboard.stores || [];
+    const pageCount = Math.max(1, Math.ceil(stores.length / state.deviceHealthPageSize));
+    const start = (state.deviceHealthPage - 1) * state.deviceHealthPageSize;
+    const visibleStores = stores.slice(start, start + state.deviceHealthPageSize);
+    return `
+        <section class="device-health-page">
+            <div class="health-page-heading">
+                <div>
+                    <h2>Device Health Dashboard</h2>
+                    <p>Store device reporting health calculated from historical CSV snapshots.</p>
+                </div>
+                <div class="health-updated">
+                    <span class="health-live-dot" aria-hidden="true"></span>
+                    <span>Data through <strong>${escapeHtml(formatHealthDate(period.end))}</strong></span>
+                    <button class="health-refresh-btn" id="refreshDeviceHealthBtn" type="button">Refresh Data</button>
+                </div>
+            </div>
+
+            ${deviceHealthFilters(dashboard)}
+
+            <div class="health-metric-grid">
+                ${healthMetricCard("Fleet Health", healthPercent(summary.fleetHealthScore), `${formatNumber(summary.healthyChecks)} healthy of ${formatNumber(summary.totalChecks)} checks`, "healthy", "stable")}
+                ${healthMetricCard("Stores at 100%", formatNumber(summary.storesAt100), `of ${formatNumber(summary.totalStores)} filtered stores`, "info", "terminals")}
+                ${healthMetricCard("Stores Below 95%", formatNumber(summary.storesBelow95), "Review lowest-scoring stores", "warning", "outdated")}
+                ${healthMetricCard("Devices Down Now", formatNumber(summary.devicesDownNow), healthStatusSummary(summary), "critical", "outdated")}
+                ${healthMetricCard("QuBox Down", formatNumber(summary.quboxDown), "Warning, critical, or offline", "critical", "qubox")}
+                ${healthMetricCard("Kiosk Down", formatNumber(summary.kioskDown), "Warning, critical, or offline", "critical", "kiosk")}
+            </div>
+
+            <div class="health-analytics-grid">
+                <section class="health-panel health-trend-panel">
+                    <div class="health-panel-heading">
+                        <div><h3>Fleet Health Trend</h3><p>${escapeHtml(period.snapshotCount || 0)} snapshots in the selected period</p></div>
+                        <span class="health-score-key">Healthy checks / Expected checks</span>
+                    </div>
+                    <canvas id="fleetHealthTrendCanvas" class="health-chart" role="img" aria-label="Fleet health score trend for the selected period"></canvas>
+                </section>
+                <section class="health-panel health-worst-panel">
+                    <div class="health-panel-heading"><div><h3>Worst Stores</h3><p>Lowest health scores in this filtered view</p></div></div>
+                    ${worstStoresTable(dashboard.worstStores || [])}
+                </section>
+            </div>
+
+            <div class="health-analytics-grid health-lower-grid">
+                <section class="health-panel health-store-panel">
+                    <div class="health-panel-heading">
+                        <div><h3>Store Scorecard</h3><p>Click a store to open its device-level scorecard.</p></div>
+                        <button class="health-export-btn" id="exportDeviceHealthBtn" type="button">Export CSV</button>
+                    </div>
+                    ${healthStoreTable(visibleStores, start)}
+                    ${healthPagination(stores.length, pageCount)}
+                </section>
+                <section class="health-panel health-issues-panel">
+                    <div class="health-panel-heading"><div><h3>Issues by Device Type</h3><p>Current status and stable-version adoption</p></div></div>
+                    <canvas id="deviceIssuesCanvas" class="health-chart health-issues-chart" role="img" aria-label="Current device health status counts by product type"></canvas>
+                    ${stableAdoptionTable(dashboard.issuesByType || [])}
+                </section>
+            </div>
+
+            ${healthMethodologyPanel(dashboard.methodology, period)}
+        </section>`;
+}
+
+function deviceHealthFilters(dashboard) {
+    const brands = dashboard.availableBrands || [];
+    const selectedBrands = state.brandFilter.selectedBrands || [];
+    const primaryValue = state.brandFilter.mode === "brand" ? `brand:${state.brandFilter.brand}` : state.brandFilter.mode;
+    const combinations = uniqueText((dashboard.stores || [])
+        .map(store => (store.brands || []).length > 1 ? brandCombinationLabel(store.brands) : "")
+        .filter(Boolean)).sort((a, b) => a.localeCompare(b));
+    return `
+        <section class="health-filter-bar">
+            <label class="health-filter-field">
+                <span>Reporting Period</span>
+                <select class="text-input" id="healthDaysSelect">
+                    ${[7, 30, 60, 90].map(days => `<option value="${days}"${state.deviceHealthDays === days ? " selected" : ""}>Last ${days} Days</option>`).join("")}
+                </select>
+            </label>
+            <label class="health-filter-field">
+                <span>Brand / Co-Brand</span>
+                <select class="text-input" id="healthBrandSelect">
+                    <option value="all"${primaryValue === "all" ? " selected" : ""}>All Brands</option>
+                    ${brands.map(brand => `<option value="brand:${escapeHtml(brand)}"${primaryValue === `brand:${brand}` ? " selected" : ""}>${escapeHtml(brand)}</option>`).join("")}
+                    <option value="cobranded"${primaryValue === "cobranded" ? " selected" : ""}>All Co-Branded Stores</option>
+                    <option value="combination"${primaryValue === "combination" ? " selected" : ""}>Custom Brand Combination</option>
+                </select>
+            </label>
+            ${state.brandFilter.mode === "cobranded" ? `
+                <label class="health-filter-field">
+                    <span>Co-Brand Combination</span>
+                    <select class="text-input" id="healthCoBrandSelect">
+                        <option value="">All Combinations</option>
+                        ${combinations.map(combination => `<option value="${escapeHtml(combination)}"${state.brandFilter.combination === combination ? " selected" : ""}>${escapeHtml(combination)}</option>`).join("")}
+                    </select>
+                </label>` : ""}
+            ${state.brandFilter.mode === "combination" ? `
+                <label class="health-filter-field health-filter-multi">
+                    <span>Select Brands</span>
+                    <select class="text-input" id="healthMultiBrandSelect" multiple size="4">
+                        ${brands.map(brand => `<option value="${escapeHtml(brand)}"${selectedBrands.includes(brand) ? " selected" : ""}>${escapeHtml(brand)}</option>`).join("")}
+                    </select>
+                </label>
+                <label class="health-filter-field">
+                    <span>Match Rule</span>
+                    <select class="text-input" id="healthBrandMatchSelect">
+                        <option value="any"${state.brandFilter.match === "any" ? " selected" : ""}>Contains Any</option>
+                        <option value="all"${state.brandFilter.match === "all" ? " selected" : ""}>Contains All</option>
+                        <option value="exact"${state.brandFilter.match === "exact" ? " selected" : ""}>Exact Combination</option>
+                    </select>
+                </label>` : ""}
+            <label class="health-filter-field health-search-field">
+                <span>Search Store ID, Store Name, or Brand</span>
+                <input class="text-input" id="healthStoreSearch" type="search" value="${escapeHtml(state.deviceHealthQuery)}" placeholder="Search stores">
+            </label>
+        </section>`;
+}
+
+function healthMetricCard(label, value, meta, tone, icon) {
+    return `
+        <article class="health-metric health-tone-${tone}">
+            <span class="health-metric-icon" aria-hidden="true">${metricIcon(icon)}</span>
+            <div><span class="health-metric-label">${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong><small>${escapeHtml(meta)}</small></div>
+        </article>`;
+}
+
+function worstStoresTable(stores) {
+    if (!stores.length) return `<div class="health-empty">No stores match the selected filters.</div>`;
+    return `
+        <div class="health-compact-table">
+            ${stores.map((store, index) => `
+                <button class="health-compact-row" type="button" data-health-store-id="${escapeHtml(store.storeId)}">
+                    <span class="health-rank">${index + 1}</span>
+                    <span><strong>${escapeHtml(store.storeId)}</strong><small>${escapeHtml(store.storeName)}</small></span>
+                    ${healthScoreBadge(store.healthScore)}
+                </button>`).join("")}
+        </div>`;
+}
+
+function healthStoreTable(stores, offset = 0) {
+    if (!stores.length) return `<div class="health-empty">No store health data is available for this filter.</div>`;
+    return `
+        <div class="health-table-wrap">
+            <table class="health-table">
+                <thead><tr><th>#</th><th>Store ID</th><th>Store Name</th><th>Brand</th><th>Health Score</th><th>Healthy</th><th>Warning</th><th>Critical</th><th>Offline</th><th>Last Good Snapshot</th></tr></thead>
+                <tbody>${stores.map((store, index) => `
+                    <tr class="health-store-row" tabindex="0" data-health-store-id="${escapeHtml(store.storeId)}">
+                        <td>${offset + index + 1}</td>
+                        <td><strong>${escapeHtml(store.storeId)}</strong></td>
+                        <td>${escapeHtml(store.storeName)}</td>
+                        <td>${escapeHtml((store.brands || []).join(" + ") || "No Data")}</td>
+                        <td>${healthScoreBadge(store.healthScore)}</td>
+                        <td class="health-number-healthy">${formatNumber(store.healthy)}</td>
+                        <td class="health-number-warning">${formatNumber(store.warning)}</td>
+                        <td class="health-number-critical">${formatNumber(store.critical)}</td>
+                        <td class="health-number-offline">${formatNumber(store.offline)}</td>
+                        <td>${escapeHtml(formatHealthDate(store.lastGoodSnapshot))}</td>
+                    </tr>`).join("")}</tbody>
+            </table>
+        </div>`;
+}
+
+function healthPagination(total, pageCount) {
+    if (pageCount <= 1) return `<div class="health-pagination"><span>Showing ${formatNumber(total)} stores</span></div>`;
+    return `
+        <div class="health-pagination">
+            <span>Showing ${formatNumber(total)} stores</span>
+            <div>
+                <button type="button" data-health-page="${state.deviceHealthPage - 1}"${state.deviceHealthPage <= 1 ? " disabled" : ""}>Previous</button>
+                <span>Page ${state.deviceHealthPage} of ${pageCount}</span>
+                <button type="button" data-health-page="${state.deviceHealthPage + 1}"${state.deviceHealthPage >= pageCount ? " disabled" : ""}>Next</button>
+            </div>
+        </div>`;
+}
+
+function stableAdoptionTable(items) {
+    if (!items.length) return `<div class="health-empty">No device data is available.</div>`;
+    return `
+        <div class="health-adoption-list">
+            ${items.map(item => `
+                <div class="health-adoption-row">
+                    <span><strong>${escapeHtml(item.label)}</strong><small>Stable ${escapeHtml(item.stableVersion || "No Data")}</small></span>
+                    <span>${item.stableUsagePercent === null ? "No Data" : `${healthPercent(item.stableUsagePercent)} (${formatNumber(item.stableDevices)}/${formatNumber(item.reportingDevices)})`}</span>
+                </div>`).join("")}
+        </div>`;
+}
+
+function healthMethodologyPanel(methodology, period) {
+    if (!methodology) return "";
+    return `
+        <details class="health-methodology">
+            <summary>Calculation Methodology and Data Coverage</summary>
+            <div class="health-methodology-grid">
+                <div><strong>Device Health Score</strong><p>${escapeHtml(methodology.score)}</p></div>
+                <div><strong>Distinct Device Identity</strong><p>${escapeHtml(methodology.identity)}</p></div>
+                <div><strong>Healthy</strong><p>${escapeHtml(methodology.healthy)}</p></div>
+                <div><strong>Warning</strong><p>${escapeHtml(methodology.warning)}</p></div>
+                <div><strong>Critical</strong><p>${escapeHtml(methodology.critical)}</p></div>
+                <div><strong>Offline</strong><p>${escapeHtml(methodology.offline)}</p></div>
+            </div>
+            <p class="health-source-note">Coverage: ${escapeHtml(period.snapshotCount || 0)} snapshots from ${escapeHtml(formatHealthDate(period.start))} through ${escapeHtml(formatHealthDate(period.end))}. Missing or unparseable source fields are displayed as No Data or classified as Critical only where the documented rule requires it.</p>
+        </details>`;
+}
+
+function bindDeviceHealthDashboard() {
+    document.getElementById("refreshDeviceHealthBtn")?.addEventListener("click", loadDeviceHealthDashboard);
+    document.getElementById("healthDaysSelect")?.addEventListener("change", event => {
+        state.deviceHealthDays = Number(event.target.value) || 30;
+        state.deviceHealthPage = 1;
+        loadDeviceHealthDashboard();
+    });
+    document.getElementById("healthBrandSelect")?.addEventListener("change", event => {
+        const value = event.target.value;
+        state.brandFilter = value.startsWith("brand:")
+            ? { mode: "brand", brand: value.slice(6), combination: "", selectedBrands: [], match: "any" }
+            : { mode: value, brand: "", combination: "", selectedBrands: [], match: "any" };
+        state.deviceHealthPage = 1;
+        loadDeviceHealthDashboard();
+    });
+    document.getElementById("healthCoBrandSelect")?.addEventListener("change", event => {
+        state.brandFilter = { ...state.brandFilter, combination: event.target.value };
+        state.deviceHealthPage = 1;
+        loadDeviceHealthDashboard();
+    });
+    document.getElementById("healthMultiBrandSelect")?.addEventListener("change", event => {
+        state.brandFilter = { ...state.brandFilter, selectedBrands: [...event.target.selectedOptions].map(option => option.value) };
+        state.deviceHealthPage = 1;
+        loadDeviceHealthDashboard();
+    });
+    document.getElementById("healthBrandMatchSelect")?.addEventListener("change", event => {
+        state.brandFilter = { ...state.brandFilter, match: event.target.value };
+        state.deviceHealthPage = 1;
+        loadDeviceHealthDashboard();
+    });
+    let searchTimer = null;
+    document.getElementById("healthStoreSearch")?.addEventListener("input", event => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => {
+            state.deviceHealthQuery = event.target.value.trim();
+            state.deviceHealthPage = 1;
+            loadDeviceHealthDashboard();
+        }, 350);
+    });
+    document.querySelectorAll("[data-health-store-id]").forEach(element => {
+        const open = () => renderDeviceHealthStore(element.dataset.healthStoreId);
+        element.addEventListener("click", open);
+        element.addEventListener("keydown", event => {
+            if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                open();
+            }
+        });
+    });
+    document.querySelectorAll("button[data-health-page]").forEach(button => {
+        button.addEventListener("click", () => {
+            state.deviceHealthPage = Number(button.dataset.healthPage) || 1;
+            const mount = document.getElementById("deviceHealthMount");
+            mount.innerHTML = deviceHealthDashboardView(state.deviceHealthDashboard);
+            bindDeviceHealthDashboard();
+            renderDeviceHealthCharts();
+            document.querySelector(".health-store-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+    });
+    document.getElementById("exportDeviceHealthBtn")?.addEventListener("click", exportDeviceHealthCsv);
+}
+
+async function renderDeviceHealthStore(storeId) {
+    state.currentPage = "deviceHealth";
+    app.innerHTML = shell(header() + `
+        <div id="deviceHealthMount">
+            <section class="health-loading-state"><span class="health-loading-ring" aria-hidden="true"></span><strong>Building store scorecard...</strong></section>
+        </div>`, "deviceHealth");
+    bindShell();
+    const params = new URLSearchParams({ action: "store", days: String(state.deviceHealthDays), storeId: String(storeId || "") });
+    try {
+        const response = await fetch(`api/device-health.php?${params.toString()}`);
+        const payload = await parseJsonResponse(response);
+        if (!payload.ok) throw new Error(payload.error || "Could not load the store scorecard.");
+        state.deviceHealthStore = payload.scorecard;
+        document.getElementById("deviceHealthMount").innerHTML = deviceHealthStoreView(payload.scorecard);
+        bindDeviceHealthStore();
+        drawStoreHealthGauge(document.getElementById("storeHealthGauge"), payload.scorecard.store.healthScore);
+        scrollPageToTop();
+    } catch (error) {
+        document.getElementById("deviceHealthMount").innerHTML = `<section class="empty health-error-state">${escapeHtml(error.message)}</section>`;
+    }
+}
+
+function deviceHealthStoreView(scorecard) {
+    const store = scorecard.store || {};
+    const period = scorecard.period || {};
+    return `
+        <section class="device-health-page health-scorecard-page">
+            <div class="health-page-heading">
+                <div>
+                    <button class="health-back-btn" id="backToHealthDashboardBtn" type="button">Back to Device Health Dashboard</button>
+                    <h2>Store Device Health Scorecard</h2>
+                    <p>${escapeHtml(period.days || 30)}-day device reporting health by store.</p>
+                </div>
+                <div class="health-updated"><span class="health-live-dot"></span><span>Data through <strong>${escapeHtml(formatHealthDate(period.end))}</strong></span><button class="health-refresh-btn" id="refreshStoreHealthBtn" type="button">Refresh Data</button></div>
+            </div>
+
+            <form class="health-store-finder" id="healthStoreFinderForm">
+                <label for="healthStoreFinder">Search Store ID, Store Name, or Brand</label>
+                <input class="text-input" id="healthStoreFinder" type="search" value="${escapeHtml(`${store.storeId} - ${store.storeName}`)}" autocomplete="off">
+                <button class="btn" type="submit">Find Store</button>
+            </form>
+            <div id="healthStoreSearchResults"></div>
+
+            <section class="health-store-hero">
+                <div class="health-gauge-wrap"><canvas id="storeHealthGauge" width="190" height="190" role="img" aria-label="${escapeHtml(healthPercent(store.healthScore))} 30-day health score"></canvas></div>
+                <div class="health-store-fact"><span>Store ID</span><strong>${escapeHtml(store.storeId)}</strong></div>
+                <div class="health-store-fact health-store-name"><span>Store Name</span><strong>${escapeHtml(store.storeName)}</strong></div>
+                <div class="health-store-fact"><span>Status</span>${healthOperationalStatus(store.operationalStatus)}</div>
+                <div class="health-store-fact"><span>Brand</span><strong>${escapeHtml((store.brands || []).join(" + ") || "No Data")}</strong></div>
+            </section>
+
+            <div class="health-store-metrics">
+                ${healthMetricCard("Expected Devices", formatNumber(store.expectedDevices), "Distinct devices in period", "info", "terminals")}
+                ${healthMetricCard("Healthy Now", formatNumber(store.healthy), "Last seen within 48 hours", "healthy", "stable")}
+                ${healthMetricCard("Warning", formatNumber(store.warning), "Last seen 2 to 7 days ago", "warning", "outdated")}
+                ${healthMetricCard("Critical", formatNumber(store.critical), "Stale over 7 days or timestamp issue", "critical", "outdated")}
+                ${healthMetricCard("Offline", formatNumber(store.offline), "Expected but absent", "offline", "outdated")}
+                ${healthMetricCard("Snapshots Checked", formatNumber(store.snapshotCount), `Last good: ${formatHealthDate(store.lastGoodSnapshot)}`, "info", "qukds")}
+            </div>
+
+            <section class="health-panel health-device-breakdown">
+                <div class="health-panel-heading"><div><h3>Device Breakdown</h3><p>Current health, version position, and 30-day reporting score.</p></div></div>
+                ${deviceBreakdownTable(scorecard.devices || [])}
+            </section>
+
+            <section class="health-panel health-timeline-panel">
+                <div class="health-panel-heading"><div><h3>Last ${escapeHtml(period.days || 30)} Days</h3><p>Daily summary of every collected snapshot. Hover or focus a day for reconciled counts.</p></div></div>
+                <div class="health-timeline-legend"><span class="healthy">Healthy</span><span class="warning">Warning</span><span class="critical">Critical</span><span class="offline">Offline</span></div>
+                ${healthTimeline(scorecard.timeline || [])}
+            </section>
+
+            ${missingDataPanel(scorecard.missingData || [])}
+            ${healthMethodologyPanel(scorecard.methodology, period)}
+        </section>`;
+}
+
+function deviceBreakdownTable(devices) {
+    if (!devices.length) return `<div class="health-empty">No applicable devices were found for this store.</div>`;
+    return `
+        <div class="health-table-wrap">
+            <table class="health-table health-device-table">
+                <thead><tr><th>Device</th><th>Product</th><th>Current Status</th><th>Current Version</th><th>Stable Status</th><th>Last Seen</th><th>30-Day Score</th><th>Impact</th></tr></thead>
+                <tbody>${devices.map(device => `
+                    <tr>
+                        <td><strong>${escapeHtml(device.label)}</strong>${device.computerName || device.networkAddress ? `<small>${escapeHtml([device.computerName, device.networkAddress].filter(Boolean).join(" • "))}</small>` : ""}</td>
+                        <td>${escapeHtml(device.productLabel)}</td>
+                        <td>${healthStatusBadge(device.currentStatus)}</td>
+                        <td>${escapeHtml(device.currentVersion || "No Data")}</td>
+                        <td>${healthStableBadge(device.stableStatus, device.stableVersion)}</td>
+                        <td>${escapeHtml(device.lastSeen || "No Data")}${device.dataIssue ? `<small class="health-data-issue">${escapeHtml(device.dataIssue)}</small>` : ""}</td>
+                        <td>${healthScoreBar(device.healthScore)}</td>
+                        <td><span class="health-impact health-impact-${escapeHtml(String(device.impact || "").toLowerCase().replaceAll(" ", "-"))}">${escapeHtml(device.impact)}</span></td>
+                    </tr>`).join("")}</tbody>
+            </table>
+        </div>`;
+}
+
+function healthTimeline(days) {
+    if (!days.length) return `<div class="health-empty">No historical snapshots are available.</div>`;
+    return `
+        <div class="health-timeline">
+            ${days.map(day => {
+                const title = `${day.label}: ${healthPercent(day.score)} across ${day.snapshotCount} snapshots; ${day.healthyChecks} healthy, ${day.warningChecks} warning, ${day.criticalChecks} critical, ${day.offlineChecks} offline.`;
+                return `<button class="health-day health-day-${escapeHtml(day.status.key)}" type="button" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}"><span>${escapeHtml(day.label)}</span></button>`;
+            }).join("")}
+        </div>`;
+}
+
+function missingDataPanel(fields) {
+    if (!fields.length) return "";
+    return `
+        <section class="health-missing-data">
+            <strong>Data Coverage Notice</strong>
+            <p>The following source data is missing or unavailable, so related values are shown as No Data: ${escapeHtml(fields.join(", "))}.</p>
+        </section>`;
+}
+
+function bindDeviceHealthStore() {
+    document.getElementById("backToHealthDashboardBtn")?.addEventListener("click", renderDeviceHealthPage);
+    document.getElementById("refreshStoreHealthBtn")?.addEventListener("click", () => renderDeviceHealthStore(state.deviceHealthStore?.store?.storeId));
+    document.getElementById("healthStoreFinderForm")?.addEventListener("submit", searchDeviceHealthStores);
+}
+
+async function searchDeviceHealthStores(event) {
+    event.preventDefault();
+    const query = document.getElementById("healthStoreFinder")?.value.trim() || "";
+    const results = document.getElementById("healthStoreSearchResults");
+    if (!query) {
+        results.innerHTML = "";
+        return;
+    }
+    results.innerHTML = `<div class="health-search-message">Searching stores...</div>`;
+    try {
+        const params = new URLSearchParams({ action: "search", days: String(state.deviceHealthDays), query });
+        const response = await fetch(`api/device-health.php?${params.toString()}`);
+        const payload = await parseJsonResponse(response);
+        if (!payload.ok) throw new Error(payload.error || "Store search failed.");
+        const stores = payload.stores || [];
+        if (stores.length === 1) {
+            await renderDeviceHealthStore(stores[0].storeId);
+            return;
+        }
+        results.innerHTML = stores.length ? `
+            <div class="health-search-results">
+                ${stores.map(store => `<button type="button" data-health-search-store="${escapeHtml(store.storeId)}"><strong>${escapeHtml(store.storeId)} - ${escapeHtml(store.storeName)}</strong><span>${escapeHtml((store.brands || []).join(" + ") || "No Brand Data")}</span></button>`).join("")}
+            </div>` : `<div class="health-search-message">No matching stores were found.</div>`;
+        results.querySelectorAll("[data-health-search-store]").forEach(button => button.addEventListener("click", () => renderDeviceHealthStore(button.dataset.healthSearchStore)));
+    } catch (error) {
+        results.innerHTML = `<div class="health-search-message health-search-error">${escapeHtml(error.message)}</div>`;
+    }
+}
+
+function renderDeviceHealthCharts() {
+    const dashboard = state.deviceHealthDashboard;
+    if (!dashboard) return;
+    const draw = () => {
+        drawFleetHealthTrend(document.getElementById("fleetHealthTrendCanvas"), dashboard.trend || []);
+        drawDeviceIssues(document.getElementById("deviceIssuesCanvas"), dashboard.issuesByType || []);
+    };
+    draw();
+    state.deviceHealthChartObserver?.disconnect();
+    if (window.ResizeObserver) {
+        let timer = null;
+        state.deviceHealthChartObserver = new ResizeObserver(() => {
+            clearTimeout(timer);
+            timer = setTimeout(draw, 120);
+        });
+        document.querySelectorAll(".health-trend-panel, .health-issues-panel").forEach(panel => state.deviceHealthChartObserver.observe(panel));
+    }
+}
+
+function prepareHealthCanvas(canvas, height) {
+    if (!canvas) return null;
+    const width = Math.max(320, Math.floor(canvas.getBoundingClientRect().width || canvas.parentElement?.clientWidth || 600));
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.style.height = `${height}px`;
+    canvas.width = Math.floor(width * dpr);
+    canvas.height = Math.floor(height * dpr);
+    const context = canvas.getContext("2d");
+    context.setTransform(dpr, 0, 0, dpr, 0, 0);
+    context.clearRect(0, 0, width, height);
+    return { context, width, height };
+}
+
+function drawFleetHealthTrend(canvas, points) {
+    const prepared = prepareHealthCanvas(canvas, 245);
+    if (!prepared) return;
+    const { context: ctx, width, height } = prepared;
+    const values = points.map(point => point.score).filter(value => value !== null && value !== undefined && Number.isFinite(Number(value)));
+    if (!values.length) {
+        drawCanvasEmpty(ctx, width, height, "No trend data available");
+        return;
+    }
+    const margin = { left: 44, right: 18, top: 18, bottom: 36 };
+    const plotWidth = width - margin.left - margin.right;
+    const plotHeight = height - margin.top - margin.bottom;
+    ctx.font = "12px Segoe UI, sans-serif";
+    ctx.fillStyle = "#8fa9c5";
+    ctx.strokeStyle = "rgba(80, 120, 160, .34)";
+    ctx.lineWidth = 1;
+    [0, 25, 50, 75, 100].forEach(value => {
+        const y = margin.top + plotHeight - (value / 100) * plotHeight;
+        ctx.beginPath();
+        ctx.moveTo(margin.left, y);
+        ctx.lineTo(width - margin.right, y);
+        ctx.stroke();
+        ctx.fillText(`${value}%`, 4, y + 4);
+    });
+    ctx.strokeStyle = "#47d66f";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    let started = false;
+    points.forEach((point, index) => {
+        if (point.score === null || point.score === undefined || !Number.isFinite(Number(point.score))) return;
+        const x = margin.left + (points.length <= 1 ? plotWidth / 2 : (index / (points.length - 1)) * plotWidth);
+        const y = margin.top + plotHeight - (Number(point.score) / 100) * plotHeight;
+        if (!started) {
+            ctx.moveTo(x, y);
+            started = true;
+        } else {
+            ctx.lineTo(x, y);
+        }
+    });
+    ctx.stroke();
+    const labelIndexes = uniqueText(["0", String(Math.floor((points.length - 1) / 2)), String(points.length - 1)]).map(Number);
+    ctx.fillStyle = "#a9bfd6";
+    labelIndexes.forEach(index => {
+        const point = points[index];
+        if (!point) return;
+        const x = margin.left + (points.length <= 1 ? plotWidth / 2 : (index / (points.length - 1)) * plotWidth);
+        ctx.textAlign = index === 0 ? "left" : index === points.length - 1 ? "right" : "center";
+        ctx.fillText(String(point.label || ""), x, height - 10);
+    });
+    ctx.textAlign = "left";
+}
+
+function drawDeviceIssues(canvas, items) {
+    const rowHeight = 32;
+    const prepared = prepareHealthCanvas(canvas, Math.max(190, items.length * rowHeight + 50));
+    if (!prepared) return;
+    const { context: ctx, width, height } = prepared;
+    if (!items.length) {
+        drawCanvasEmpty(ctx, width, height, "No device issue data available");
+        return;
+    }
+    const left = Math.min(118, width * .28);
+    const right = 40;
+    const maxTotal = Math.max(...items.map(item => Number(item.total || 0)), 1);
+    const colors = { healthy: "#47d66f", warning: "#ffc20d", critical: "#ff8a34", offline: "#ff5252" };
+    ctx.font = "12px Segoe UI, sans-serif";
+    items.forEach((item, index) => {
+        const y = 14 + index * rowHeight;
+        ctx.fillStyle = "#d9ecff";
+        ctx.textAlign = "right";
+        ctx.fillText(item.label, left - 10, y + 15);
+        let x = left;
+        ["critical", "warning", "offline", "healthy"].forEach(key => {
+            const count = Number(item[key] || 0);
+            if (!count) return;
+            const segmentWidth = ((width - left - right) * count) / maxTotal;
+            ctx.fillStyle = colors[key];
+            ctx.fillRect(x, y, segmentWidth, 20);
+            if (segmentWidth > 24) {
+                ctx.fillStyle = key === "warning" ? "#07101f" : "#ffffff";
+                ctx.textAlign = "center";
+                ctx.fillText(String(count), x + segmentWidth / 2, y + 14);
+            }
+            x += segmentWidth;
+        });
+        ctx.fillStyle = "#a9bfd6";
+        ctx.textAlign = "left";
+        ctx.fillText(formatNumber(item.total), Math.min(x + 7, width - 32), y + 15);
+    });
+    const legendY = height - 18;
+    let legendX = left;
+    Object.entries(colors).forEach(([key, color]) => {
+        ctx.fillStyle = color;
+        ctx.fillRect(legendX, legendY - 10, 10, 10);
+        ctx.fillStyle = "#a9bfd6";
+        ctx.textAlign = "left";
+        const label = key[0].toUpperCase() + key.slice(1);
+        ctx.fillText(label, legendX + 15, legendY);
+        legendX += ctx.measureText(label).width + 42;
+    });
+}
+
+function drawStoreHealthGauge(canvas, score) {
+    if (!canvas) return;
+    const size = 190;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = size * dpr;
+    canvas.height = size * dpr;
+    canvas.style.width = `${size}px`;
+    canvas.style.height = `${size}px`;
+    const ctx = canvas.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, size, size);
+    const value = score !== null && score !== undefined && Number.isFinite(Number(score)) ? Math.max(0, Math.min(100, Number(score))) : null;
+    ctx.lineWidth = 13;
+    ctx.strokeStyle = "#263b55";
+    ctx.beginPath();
+    ctx.arc(95, 95, 70, -Math.PI / 2, Math.PI * 1.5);
+    ctx.stroke();
+    if (value !== null) {
+        ctx.strokeStyle = healthScoreColor(value);
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.arc(95, 95, 70, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (value / 100));
+        ctx.stroke();
+    }
+    ctx.fillStyle = "#f4f8ff";
+    ctx.font = "800 34px Segoe UI, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(value === null ? "N/A" : `${value.toFixed(1)}%`, 95, 93);
+    ctx.fillStyle = "#9bb0c8";
+    ctx.font = "12px Segoe UI, sans-serif";
+    ctx.fillText("30-Day Health Score", 95, 118);
+}
+
+function drawCanvasEmpty(ctx, width, height, message) {
+    ctx.fillStyle = "#8fa9c5";
+    ctx.font = "14px Segoe UI, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(message, width / 2, height / 2);
+    ctx.textAlign = "left";
+}
+
+function exportDeviceHealthCsv() {
+    const dashboard = state.deviceHealthDashboard;
+    if (!dashboard?.stores?.length) {
+        alert("There are no stores in the current Device Health view to export.");
+        return;
+    }
+    const headers = ["Store ID", "Store Name", "Brands", "Operational Status", "Health Score", "Total Devices", "Healthy", "Warning", "Critical", "Offline", "Last Good Snapshot"];
+    const rows = dashboard.stores.map(store => [
+        store.storeId,
+        store.storeName,
+        (store.brands || []).join(" + "),
+        store.operationalStatus || "No Data",
+        store.healthScore === null ? "No Data" : store.healthScore,
+        store.totalDevices,
+        store.healthy,
+        store.warning,
+        store.critical,
+        store.offline,
+        store.lastGoodSnapshot || "No Data",
+    ]);
+    const content = [headers, ...rows].map(row => row.map(csvCell).join(",")).join("\r\n");
+    downloadFile(`device-health-${state.deviceHealthDays}-days-${new Date().toISOString().slice(0, 10)}.csv`, content, "text/csv;charset=utf-8");
+}
+
+function healthScoreBadge(score) {
+    if (score === null || score === undefined || !Number.isFinite(Number(score))) return `<span class="health-score-badge no-data">No Data</span>`;
+    const value = Number(score);
+    return `<span class="health-score-badge ${healthScoreTone(value)}">${value.toFixed(1)}%</span>`;
+}
+
+function healthScoreBar(score) {
+    if (score === null || score === undefined || !Number.isFinite(Number(score))) return `<span class="health-score-bar-label">No Data</span>`;
+    const value = Math.max(0, Math.min(100, Number(score)));
+    return `<div class="health-score-cell"><span>${value.toFixed(1)}%</span><span class="health-score-track"><span style="width:${value}%;background:${healthScoreColor(value)}"></span></span></div>`;
+}
+
+function healthScoreTone(score) {
+    if (score >= 95) return "healthy";
+    if (score >= 90) return "warning";
+    return "critical";
+}
+
+function healthScoreColor(score) {
+    if (score >= 95) return "#47d66f";
+    if (score >= 90) return "#ffc20d";
+    return "#ff5252";
+}
+
+function healthStatusBadge(status) {
+    const key = status?.key || "offline";
+    return `<span class="health-status-badge ${escapeHtml(key)}">${escapeHtml(status?.label || "Offline")}</span>`;
+}
+
+function healthStableBadge(status, stableVersion) {
+    const key = status?.key || "unavailable";
+    const version = stableVersion ? ` • ${stableVersion}` : "";
+    return `<span class="health-stable-badge ${escapeHtml(key)}">${escapeHtml((status?.label || "Not Available") + version)}</span>`;
+}
+
+function healthOperationalStatus(status) {
+    const value = String(status || "").trim();
+    if (!value) return `<strong class="health-operation unknown">No Data</strong>`;
+    const tone = value.toLowerCase().includes("not operational") ? "offline" : value.toLowerCase().includes("live") ? "live" : "unknown";
+    return `<strong class="health-operation ${tone}">${escapeHtml(value)}</strong>`;
+}
+
+function healthStatusSummary(summary) {
+    return `${formatNumber(summary.warning)} warning • ${formatNumber(summary.critical)} critical • ${formatNumber(summary.offline)} offline`;
+}
+
+function healthPercent(value) {
+    return value !== null && value !== undefined && Number.isFinite(Number(value)) ? `${Number(value).toFixed(1)}%` : "No Data";
+}
+
+function formatNumber(value) {
+    return value !== null && value !== undefined && Number.isFinite(Number(value)) ? Number(value).toLocaleString() : "No Data";
+}
+
+function formatHealthDate(value) {
+    if (!value) return "No Data";
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString([], { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
 async function renderAlertsPage() {
     state.currentPage = "alerts";
     state.activeTab = "alerts";
@@ -1428,6 +2176,10 @@ function navigateToPage(page) {
     }
     if (page === "alerts") {
         renderAlertsPage();
+        return;
+    }
+    if (page === "deviceHealth") {
+        renderDeviceHealthPage();
         return;
     }
     if (page === "settings" || page === "users") {

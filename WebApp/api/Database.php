@@ -10,6 +10,7 @@ final class Database
     public const SECTION_REPORTS = 'reports';
     public const SECTION_UPLOAD = 'upload';
     public const SECTION_ALERTS = 'alerts';
+    public const SECTION_DEVICE_HEALTH = 'device_health';
     public const SECTION_SETTINGS = 'settings';
     public const JOB_TERMINALS = 'qu_ei_terminals_csv';
     public const JOB_STORES = 'qu_ei_stores_csv';
@@ -237,6 +238,14 @@ final class Database
                 locked_by VARCHAR(160) NOT NULL
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
         );
+        $pdo->exec(
+            "CREATE TABLE IF NOT EXISTS device_health_cache (
+                cache_key VARCHAR(190) PRIMARY KEY,
+                payload LONGTEXT NOT NULL,
+                created_at DATETIME NOT NULL,
+                INDEX idx_device_health_cache_created (created_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+        );
         $pdo->exec("ALTER TABLE reports ADD COLUMN IF NOT EXISTS current_upload_id INT UNSIGNED NULL");
         $pdo->exec("ALTER TABLE reports ADD COLUMN IF NOT EXISTS previous_upload_id INT UNSIGNED NULL");
         self::addColumnIfMissing($pdo, 'users', 'two_factor_secret', 'VARCHAR(64) NULL');
@@ -253,6 +262,7 @@ final class Database
             ['key' => self::SECTION_REPORTS, 'label' => 'View Reports'],
             ['key' => self::SECTION_UPLOAD, 'label' => 'Upload CSV'],
             ['key' => self::SECTION_ALERTS, 'label' => 'Alerts'],
+            ['key' => self::SECTION_DEVICE_HEALTH, 'label' => 'Device Health'],
             ['key' => self::SECTION_SETTINGS, 'label' => 'Settings'],
         ];
     }
@@ -270,6 +280,7 @@ final class Database
                 self::SECTION_REPORTS => true,
                 self::SECTION_UPLOAD => true,
                 self::SECTION_ALERTS => true,
+                self::SECTION_DEVICE_HEALTH => true,
                 self::SECTION_SETTINGS => true,
             ],
             self::ROLE_TECH => [
@@ -277,6 +288,7 @@ final class Database
                 self::SECTION_REPORTS => true,
                 self::SECTION_UPLOAD => true,
                 self::SECTION_ALERTS => true,
+                self::SECTION_DEVICE_HEALTH => true,
                 self::SECTION_SETTINGS => false,
             ],
             self::ROLE_READ_ONLY => [
@@ -284,6 +296,7 @@ final class Database
                 self::SECTION_REPORTS => true,
                 self::SECTION_UPLOAD => false,
                 self::SECTION_ALERTS => true,
+                self::SECTION_DEVICE_HEALTH => true,
                 self::SECTION_SETTINGS => false,
             ],
         ];

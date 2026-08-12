@@ -175,3 +175,10 @@ CREATE TABLE IF NOT EXISTS api_locks (
     locked_at DATETIME NOT NULL,
     locked_by VARCHAR(160) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS device_health_cache (
+    cache_key VARCHAR(190) PRIMARY KEY,
+    payload LONGTEXT NOT NULL,
+    created_at DATETIME NOT NULL,
+    INDEX idx_device_health_cache_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
