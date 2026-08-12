@@ -484,6 +484,14 @@ const FEATURE_RELEASES = [
         type: "Improvement",
         status: "Released",
     },
+    {
+        version: "v006.09",
+        releasedAt: "August 11, 2026 23:05 EST",
+        title: "Store Status Matching Fix",
+        description: "Improved Store Information matching so store status can resolve by alternate store ID fields, leading store numbers in names, and normalized store-name fallback.",
+        type: "Bug Fix",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;

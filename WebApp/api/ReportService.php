@@ -419,7 +419,7 @@ final class ReportService
             $stores[] = [
                 'storeId' => $storeId,
                 'storeName' => (string)($first['Store Name'] ?? ''),
-                'storeStatus' => self::storeStatus((string)$storeId, $storeMetadataMap),
+                'storeStatus' => self::storeStatus((string)$storeId, (string)($first['Store Name'] ?? ''), $storeMetadataMap),
                 'storeBrands' => self::storeBrands((string)$storeId, (string)($first['Store Name'] ?? ''), $storeMetadataMap),
                 'terminalCount' => count($storeRows),
                 'terminalTypes' => self::uniqueJoin($storeRows, 'Terminal Type'),
@@ -448,7 +448,7 @@ final class ReportService
             $stores[] = [
                 'storeId' => $storeId,
                 'storeName' => (string)($first['Store Name'] ?? ''),
-                'storeStatus' => self::storeStatus((string)$storeId, $storeMetadataMap),
+                'storeStatus' => self::storeStatus((string)$storeId, (string)($first['Store Name'] ?? ''), $storeMetadataMap),
                 'storeBrands' => self::storeBrands((string)$storeId, (string)($first['Store Name'] ?? ''), $storeMetadataMap),
                 'versionsDetected' => implode(', ', $versions),
                 'versionsDetectedList' => $versions,
@@ -464,16 +464,16 @@ final class ReportService
         return $stores;
     }
 
-    private static function storeStatus(string $storeId, array $storeStatusMap): string
+    private static function storeStatus(string $storeId, string $storeName, array $storeMetadataMap): string
     {
-        $row = $storeStatusMap[$storeId] ?? '';
+        $row = self::storeMetadataRow($storeId, $storeName, $storeMetadataMap);
         $status = is_array($row) ? trim((string)($row['status'] ?? '')) : trim((string)$row);
         return $status === '' ? 'No Store Data' : $status;
     }
 
     private static function storeBrands(string $storeId, string $storeName, array $storeMetadataMap): array
     {
-        $row = $storeMetadataMap[$storeId] ?? [];
+        $row = self::storeMetadataRow($storeId, $storeName, $storeMetadataMap);
         $brands = is_array($row) ? (array)($row['brands'] ?? []) : [];
         $brands = array_merge($brands, self::brandsFromText($storeName), self::brandsFromText((string)($row['storeName'] ?? '')));
         $brands = array_values(array_unique(array_filter(array_map(
@@ -482,6 +482,37 @@ final class ReportService
         ))));
         usort($brands, static fn(string $a, string $b): int => strcasecmp($a, $b));
         return $brands;
+    }
+
+    private static function storeMetadataRow(string $storeId, string $storeName, array $storeMetadataMap): array|string
+    {
+        $storeId = trim($storeId);
+        if ($storeId !== '' && array_key_exists($storeId, $storeMetadataMap)) {
+            return $storeMetadataMap[$storeId];
+        }
+
+        $normalizedName = self::normalizeStoreName($storeName);
+        if ($normalizedName === '') {
+            return '';
+        }
+        foreach ($storeMetadataMap as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $metadataName = self::normalizeStoreName((string)($row['storeName'] ?? ''));
+            if ($metadataName !== '' && $metadataName === $normalizedName) {
+                return $row;
+            }
+        }
+        return '';
+    }
+
+    private static function normalizeStoreName(string $value): string
+    {
+        $value = strtolower(trim($value));
+        $value = preg_replace('/\\[[^\\]]+\\]/', '', $value) ?? $value;
+        $value = preg_replace('/\\s+/', ' ', $value) ?? $value;
+        return trim($value);
     }
 
     private static function brandsFromText(string $text): array

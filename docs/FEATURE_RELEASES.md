@@ -1,6 +1,6 @@
 # Release Notes
 
-Current application version: `v006.08`
+Current application version: `v006.09`
 
 Version sequence: `v001.01` through `v001.09`, then `v002.00`, followed by
 `v002.00` through `v002.09`, then `v003.00` through `v003.09`, then `v004.00`
@@ -15,6 +15,7 @@ Newest releases are listed first.
 
 | Version | Release Date And Time | Type | Title | Description | Status |
 | --- | --- | --- | --- | --- | --- |
+| v006.09 | August 11, 2026 23:05 EST | Bug Fix | Store Status Matching Fix | Improved Store Information matching so store status can resolve by alternate store ID fields, leading store numbers in names, and normalized store-name fallback. | Released |
 | v006.08 | August 11, 2026 22:52 EST | Improvement | Store Import History Tab | Updated the Upload CSV page so the Store Information tab displays Store Information CSV import history instead of terminal upload history. | Released |
 | v006.07 | August 11, 2026 22:45 EST | Feature | Manual Store Information Upload | Added a Store Information CSV upload tab so Tech and Admin users can manually import QU EI store data into SQL when automation is unavailable. | Released |
 | v006.06 | August 11, 2026 22:28 EST | Improvement | Compact Dashboard Control Row | Combined the past upload selector, sync/job status indicators, and dashboard brand filter into one compact dashboard control row to reduce vertical clutter. | Released |

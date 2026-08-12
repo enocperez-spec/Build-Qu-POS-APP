@@ -1074,33 +1074,33 @@ final class Database
         }
 
         $statement = $pdo->prepare(
-            "SELECT store_id, store_name, brand, status, city, state
+            "SELECT store_id, store_name, brand, status, city, state, raw_json
              FROM store_rows
-             WHERE import_id = :import_id
-               AND store_id IS NOT NULL
-               AND store_id <> ''"
+             WHERE import_id = :import_id"
         );
         $statement->execute([':import_id' => $latest['id']]);
         $metadataMap = [];
         foreach ($statement->fetchAll() as $row) {
-            $storeId = trim((string)$row['store_id']);
-            if ($storeId === '') {
+            $lookupKeys = self::storeMetadataLookupKeys($row);
+            if (count($lookupKeys) === 0) {
                 continue;
             }
-            if (!isset($metadataMap[$storeId])) {
-                $metadataMap[$storeId] = [
-                    'storeName' => trim((string)($row['store_name'] ?? '')),
-                    'brands' => [],
-                    'status' => trim((string)($row['status'] ?? '')),
-                    'city' => trim((string)($row['city'] ?? '')),
-                    'state' => trim((string)($row['state'] ?? '')),
-                ];
+            foreach ($lookupKeys as $storeId) {
+                if (!isset($metadataMap[$storeId])) {
+                    $metadataMap[$storeId] = [
+                        'storeName' => trim((string)($row['store_name'] ?? '')),
+                        'brands' => [],
+                        'status' => trim((string)($row['status'] ?? '')),
+                        'city' => trim((string)($row['city'] ?? '')),
+                        'state' => trim((string)($row['state'] ?? '')),
+                    ];
+                }
+                $metadataMap[$storeId]['brands'] = array_merge(
+                    $metadataMap[$storeId]['brands'],
+                    self::splitBrands((string)($row['brand'] ?? '')),
+                    self::brandsFromText((string)($row['store_name'] ?? ''))
+                );
             }
-            $metadataMap[$storeId]['brands'] = array_merge(
-                $metadataMap[$storeId]['brands'],
-                self::splitBrands((string)($row['brand'] ?? '')),
-                self::brandsFromText((string)($row['store_name'] ?? ''))
-            );
         }
         foreach ($metadataMap as $storeId => $row) {
             $metadataMap[$storeId]['brands'] = array_values(array_unique(array_filter(array_map(
@@ -1109,6 +1109,37 @@ final class Database
             ))));
         }
         return $metadataMap;
+    }
+
+    private static function storeMetadataLookupKeys(array $row): array
+    {
+        $keys = [];
+        foreach ([(string)($row['store_id'] ?? '')] as $candidate) {
+            $candidate = trim($candidate);
+            if ($candidate !== '') {
+                $keys[] = $candidate;
+            }
+        }
+
+        $decoded = json_decode((string)($row['raw_json'] ?? ''), true);
+        if (is_array($decoded)) {
+            foreach (['Store ID', 'Store Id', 'Store Number', 'Store #', 'Number', 'ID', 'Location ID', 'Location Number'] as $fieldName) {
+                $candidate = self::field($decoded, $fieldName);
+                if ($candidate !== null) {
+                    $keys[] = $candidate;
+                }
+            }
+        }
+
+        $storeName = trim((string)($row['store_name'] ?? ''));
+        if (preg_match('/^([0-9]{3,})(?:\\b|[-_\\s])/', $storeName, $matches)) {
+            $keys[] = $matches[1];
+        }
+
+        return array_values(array_unique(array_filter(array_map(
+            static fn(string $key): string => trim($key),
+            $keys
+        ))));
     }
 
     private static function field(array $row, string $name): ?string
