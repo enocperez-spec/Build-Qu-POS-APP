@@ -1,10 +1,11 @@
 # Release Notes
 
-Current application version: `v005.09`
+Current application version: `v006.00`
 
 Version sequence: `v001.01` through `v001.09`, then `v002.00`, followed by
 `v002.00` through `v002.09`, then `v003.00` through `v003.09`, then `v004.00`
-through `v004.09`, then `v005.00` through `v005.09`, then `v006.00`, and so on.
+through `v004.09`, then `v005.00` through `v005.09`, then `v006.00` through
+`v006.09`, then `v007.00`, and so on.
 
 Going forward, every approved and completed feature, improvement, bug fix, or
 security change should add a new entry here and update the current application
@@ -14,6 +15,7 @@ Newest releases are listed first.
 
 | Version | Release Date And Time | Type | Title | Description | Status |
 | --- | --- | --- | --- | --- | --- |
+| v006.00 | 2026-08-12 00:20:00 -04:00 | Feature | Protected Store Status Lookup | Added a protected store-status lookup endpoint so support users and automation can verify a store's latest QU EI operational status by store name or store ID. | Released |
 | v005.09 | 2026-08-12 00:10:00 -04:00 | Bug Fix | Store Export Selector Hardening | Updated the QU EI Store Information export automation to use the Stores page export test ID and pair export clicks with the download listener for clearer failures. | Released |
 | v005.08 | 2026-08-12 00:00:00 -04:00 | Bug Fix | Store Export Menu Label Fix | Updated the QU EI Store Information export automation to click the current Export Stores Info menu label used on the Stores page. | Released |
 | v005.07 | 2026-08-11 23:50:00 -04:00 | Bug Fix | Store Export Login Detection Fix | Fixed QU EI Store Information export automation so post-login page inputs are not mistaken for the login form after the What's New modal closes. | Released |

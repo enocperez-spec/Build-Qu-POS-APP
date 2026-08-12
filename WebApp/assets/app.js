@@ -408,6 +408,14 @@ const FEATURE_RELEASES = [
         type: "Bug Fix",
         status: "Released",
     },
+    {
+        version: "v006.00",
+        releasedAt: "2026-08-12 00:20:00 -04:00",
+        title: "Protected Store Status Lookup",
+        description: "Added a protected store-status lookup endpoint so support users and automation can verify a store's latest QU EI operational status by store name or store ID.",
+        type: "Feature",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
@@ -1144,7 +1152,7 @@ function renderReleaseNotes(returnPage = state.currentPage || "dashboard") {
             </div>
             <button class="btn back-btn" id="backToApplicationBtn" type="button">Back to Application</button>
             <div class="release-rules">
-                Version sequence: v001.01 through v001.09, then v002.00 through v002.09, then v003.00 through v003.09, then v004.00 through v004.09, then v005.00 through v005.09, then v006.00, v006.01, and so on.
+                Version sequence: v001.01 through v001.09, then v002.00 through v002.09, then v003.00 through v003.09, then v004.00 through v004.09, then v005.00 through v005.09, then v006.00 through v006.09, then v007.00, v007.01, and so on.
             </div>
             <div class="release-list">
                 ${FEATURE_RELEASES.slice().reverse().map(release => `

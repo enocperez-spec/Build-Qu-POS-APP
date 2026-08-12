@@ -41,12 +41,14 @@ alerts, and historical comparisons.
   cards, including usage percentage when reporting data is available.
 - Shows store operational status in version drill-down tables when QU EI Store
   Information data is available.
+- Includes a protected store-status lookup endpoint for checking the latest QU
+  EI operational status by store name or store ID.
 - Shows a polished top-right user profile card with role, dashboard last
   updated time, and logout action.
 
 ## Release Notes
 
-The current application version is `v005.09`.
+The current application version is `v006.00`.
 
 Release history is tracked in [docs/FEATURE_RELEASES.md](docs/FEATURE_RELEASES.md).
 Every completed request receives the next version number and remains available
