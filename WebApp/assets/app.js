@@ -432,6 +432,14 @@ const FEATURE_RELEASES = [
         type: "Improvement",
         status: "Released",
     },
+    {
+        version: "v006.03",
+        releasedAt: "August 11, 2026 22:01 EST",
+        title: "Release Notes Scroll Position",
+        description: "Updated the footer version link so opening Release Notes always starts at the top of the page.",
+        type: "Improvement",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
@@ -948,6 +956,10 @@ function bindFooter() {
     document.getElementById("footerVersionBtn")?.addEventListener("click", () => renderReleaseNotes(state.currentPage || "dashboard"));
 }
 
+function scrollPageToTop() {
+    requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: "auto" }));
+}
+
 async function logout() {
     await fetch("api/auth.php?action=logout", { method: "POST" });
     state.user = null;
@@ -1182,6 +1194,7 @@ function renderReleaseNotes(returnPage = state.currentPage || "dashboard") {
             </div>
         </section>`, "releaseNotes");
     bindShell();
+    scrollPageToTop();
 }
 
 function navigateToPage(page) {

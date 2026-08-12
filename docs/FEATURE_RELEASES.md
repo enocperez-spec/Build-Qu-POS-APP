@@ -1,6 +1,6 @@
 # Release Notes
 
-Current application version: `v006.02`
+Current application version: `v006.03`
 
 Version sequence: `v001.01` through `v001.09`, then `v002.00`, followed by
 `v002.00` through `v002.09`, then `v003.00` through `v003.09`, then `v004.00`
@@ -15,6 +15,7 @@ Newest releases are listed first.
 
 | Version | Release Date And Time | Type | Title | Description | Status |
 | --- | --- | --- | --- | --- | --- |
+| v006.03 | August 11, 2026 22:01 EST | Improvement | Release Notes Scroll Position | Updated the footer version link so opening Release Notes always starts at the top of the page. | Released |
 | v006.02 | August 11, 2026 21:57 EST | Improvement | Release Notes Current Version Spacing | Added spacing around the Current Version badge on the Release Notes page so the header area has cleaner separation from the panel edge and release list. | Released |
 | v006.01 | August 11, 2026 21:54 EST | Improvement | Release Notes Page Cleanup | Removed the Back to Application button and version sequence section from the Release Notes page for a cleaner release history view. | Released |
 | v006.00 | August 11, 2026 23:15 EST | Feature | Protected Store Status Lookup | Added a protected store-status lookup endpoint so support users and automation can verify a store's latest QU EI operational status by store name or store ID. | Released |
