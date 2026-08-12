@@ -825,6 +825,36 @@ tr:hover td { background: rgba(35, 199, 255, .055); }
 .badge.higher { color: #ffe6a3; background: rgba(248, 194, 13, .12); border-color: var(--yellow); }
 .badge.neutral { color: var(--text); }
 
+.store-status-badge {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: .01em;
+    white-space: nowrap;
+}
+
+.store-status-badge.live {
+    color: #c8ffd7;
+    background: rgba(71, 214, 111, .12);
+    border-color: rgba(71, 214, 111, .75);
+}
+
+.store-status-badge.not-operational {
+    color: #ffd0d0;
+    background: rgba(255, 92, 92, .12);
+    border-color: rgba(255, 92, 92, .75);
+}
+
+.store-status-badge.unknown {
+    color: #d9f6ff;
+    background: rgba(35, 199, 255, .08);
+    border-color: rgba(35, 199, 255, .35);
+}
+
 details.version-detail {
     border: 1px solid var(--line);
     border-radius: 14px;

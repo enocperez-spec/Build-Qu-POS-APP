@@ -1009,6 +1009,33 @@ final class Database
         ];
     }
 
+    public static function latestStoreStatusMap(PDO $pdo): array
+    {
+        self::initialize($pdo);
+        $latest = self::latestStoreImport($pdo);
+        if (!$latest) {
+            return [];
+        }
+
+        $statement = $pdo->prepare(
+            "SELECT store_id, status
+             FROM store_rows
+             WHERE import_id = :import_id
+               AND store_id IS NOT NULL
+               AND store_id <> ''"
+        );
+        $statement->execute([':import_id' => $latest['id']]);
+        $statusMap = [];
+        foreach ($statement->fetchAll() as $row) {
+            $storeId = trim((string)$row['store_id']);
+            if ($storeId === '') {
+                continue;
+            }
+            $statusMap[$storeId] = trim((string)($row['status'] ?? ''));
+        }
+        return $statusMap;
+    }
+
     private static function field(array $row, string $name): ?string
     {
         if (!array_key_exists($name, $row)) {

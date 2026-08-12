@@ -352,6 +352,14 @@ const FEATURE_RELEASES = [
         type: "Improvement",
         status: "Released",
     },
+    {
+        version: "v005.03",
+        releasedAt: "2026-08-11 23:05:00 -04:00",
+        title: "Store Operational Status Badges",
+        description: "Added store status indicators to version drill-down tables so each store can show Live, Not Operational, or No Store Data from the latest QU EI Store Information import.",
+        type: "Improvement",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
@@ -424,6 +432,16 @@ function deviceLabel(appType = "pos") {
         quorb: "QuORB",
     };
     return labels[appType] || "Devices";
+}
+
+function storeStatusBadge(status) {
+    const label = String(status || "No Store Data").trim() || "No Store Data";
+    const tone = label.toLowerCase().includes("not operational")
+        ? "not-operational"
+        : label.toLowerCase().includes("live")
+            ? "live"
+            : "unknown";
+    return `<span class="store-status-badge ${tone}">${escapeHtml(label)}</span>`;
 }
 
 function canManageUsers() {
@@ -1671,9 +1689,10 @@ function versionDetail(item, report, baseline = null, appType = "pos") {
             <summary>${badge(item.version, report, baseline)}<span>${escapeHtml(item.terminalCount)} ${escapeHtml(productName)} across ${escapeHtml(item.storeCount)} stores</span></summary>
             <div class="detail-body">
                 ${item.url ? `<p><a href="${escapeHtml(item.url)}" target="_blank">${escapeHtml(item.url)}</a></p>` : ""}
-                ${simpleTable(["Store ID", "Store Name", "Terminals", "Types", "Latest Seen"], (item.storeRows || []).map(store => [
+                ${simpleTable(["Store ID", "Store Name", "Status", "Terminals", "Types", "Latest Seen"], (item.storeRows || []).map(store => [
                     store.storeId,
                     store.storeName,
+                    storeStatusBadge(store.storeStatus),
                     store.terminalCount,
                     store.terminalTypes,
                     store.latestSeen
