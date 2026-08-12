@@ -1,6 +1,6 @@
 # Release Notes
 
-Current application version: `v006.00`
+Current application version: `v006.01`
 
 Version sequence: `v001.01` through `v001.09`, then `v002.00`, followed by
 `v002.00` through `v002.09`, then `v003.00` through `v003.09`, then `v004.00`
@@ -15,6 +15,7 @@ Newest releases are listed first.
 
 | Version | Release Date And Time | Type | Title | Description | Status |
 | --- | --- | --- | --- | --- | --- |
+| v006.01 | August 11, 2026 21:54 EST | Improvement | Release Notes Page Cleanup | Removed the Back to Application button and version sequence section from the Release Notes page for a cleaner release history view. | Released |
 | v006.00 | August 11, 2026 23:15 EST | Feature | Protected Store Status Lookup | Added a protected store-status lookup endpoint so support users and automation can verify a store's latest QU EI operational status by store name or store ID. | Released |
 | v005.09 | August 12, 2026 00:10 EST | Bug Fix | Store Export Selector Hardening | Updated the QU EI Store Information export automation to use the Stores page export test ID and pair export clicks with the download listener for clearer failures. | Released |
 | v005.08 | August 12, 2026 00:00 EST | Bug Fix | Store Export Menu Label Fix | Updated the QU EI Store Information export automation to click the current Export Stores Info menu label used on the Stores page. | Released |

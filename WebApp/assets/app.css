@@ -1026,10 +1026,6 @@ details.version-detail summary span {
     margin-top: 0;
 }
 
-.back-btn {
-    margin: 0 0 18px;
-}
-
 .release-current {
     border: 1px solid rgba(35, 199, 255, .34);
     border-radius: 16px;
@@ -1044,14 +1040,6 @@ details.version-detail summary span {
     color: var(--cyan);
     font-size: 28px;
     line-height: 1;
-}
-
-.release-rules {
-    border-left: 4px solid var(--cyan);
-    color: #d7efff;
-    margin: 0 0 18px;
-    padding: 12px 14px;
-    background: rgba(35, 199, 255, .06);
 }
 
 .release-list {

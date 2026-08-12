@@ -416,6 +416,14 @@ const FEATURE_RELEASES = [
         type: "Feature",
         status: "Released",
     },
+    {
+        version: "v006.01",
+        releasedAt: "August 11, 2026 21:54 EST",
+        title: "Release Notes Page Cleanup",
+        description: "Removed the Back to Application button and version sequence section from the Release Notes page for a cleaner release history view.",
+        type: "Improvement",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
@@ -1150,10 +1158,6 @@ function renderReleaseNotes(returnPage = state.currentPage || "dashboard") {
                     <strong>${escapeHtml(APP_VERSION)}</strong>
                 </div>
             </div>
-            <button class="btn back-btn" id="backToApplicationBtn" type="button">Back to Application</button>
-            <div class="release-rules">
-                Version sequence: v001.01 through v001.09, then v002.00 through v002.09, then v003.00 through v003.09, then v004.00 through v004.09, then v005.00 through v005.09, then v006.00 through v006.09, then v007.00, v007.01, and so on.
-            </div>
             <div class="release-list">
                 ${FEATURE_RELEASES.slice().reverse().map(release => `
                     <article class="release-card">
@@ -1170,7 +1174,6 @@ function renderReleaseNotes(returnPage = state.currentPage || "dashboard") {
             </div>
         </section>`, "releaseNotes");
     bindShell();
-    document.getElementById("backToApplicationBtn")?.addEventListener("click", () => navigateToPage(state.releaseNotesReturnPage || "dashboard"));
 }
 
 function navigateToPage(page) {
