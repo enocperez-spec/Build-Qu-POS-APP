@@ -244,6 +244,71 @@ final class DeviceHealthService
         return array_slice($matches, 0, 20);
     }
 
+    public static function validateProductionData(PDO $pdo, int $days = self::DEFAULT_DAYS): array
+    {
+        $dashboard = self::dashboard($pdo, [], $days);
+        $summary = $dashboard['summary'];
+        $statusTotal = $summary['healthy'] + $summary['warning'] + $summary['critical'] + $summary['offline'];
+        $calculatedScore = $summary['totalChecks'] > 0
+            ? round(($summary['healthyChecks'] / $summary['totalChecks']) * 100, 1)
+            : null;
+        $productTotal = array_sum(array_map(static fn(array $row): int => (int)$row['total'], $dashboard['issuesByType']));
+        $checks = [
+            'snapshotsAvailable' => $dashboard['period']['snapshotCount'] > 0,
+            'storesAvailable' => $summary['totalStores'] > 0,
+            'devicesAvailable' => $summary['totalDevices'] > 0,
+            'statusCountsReconcile' => $statusTotal === $summary['totalDevices'],
+            'productCountsReconcile' => $productTotal === $summary['totalDevices'],
+            'scoreReconciles' => $calculatedScore === $summary['fleetHealthScore'],
+            'storeRowsReconcile' => count($dashboard['stores']) === $summary['totalStores'],
+            'worstStoreLimit' => count($dashboard['worstStores']) <= 5,
+        ];
+        $products = [];
+        foreach ($dashboard['issuesByType'] as $item) {
+            $deviceStatusTotal = $item['healthy'] + $item['warning'] + $item['critical'] + $item['offline'];
+            $checks['product_' . $item['product'] . '_reconciles'] = $deviceStatusTotal === $item['total'];
+            if ($item['stableUsagePercent'] !== null) {
+                $expectedUsage = $item['reportingDevices'] > 0
+                    ? round(($item['stableDevices'] / $item['reportingDevices']) * 100, 1)
+                    : null;
+                $checks['product_' . $item['product'] . '_stable_usage'] = $expectedUsage === $item['stableUsagePercent'];
+            }
+            $products[] = [
+                'product' => $item['product'],
+                'total' => $item['total'],
+                'healthy' => $item['healthy'],
+                'warning' => $item['warning'],
+                'critical' => $item['critical'],
+                'offline' => $item['offline'],
+                'stableVersion' => $item['stableVersion'],
+                'stableUsagePercent' => $item['stableUsagePercent'],
+            ];
+        }
+        $brand = $dashboard['availableBrands'][0] ?? null;
+        if ($brand !== null) {
+            $brandDashboard = self::dashboard($pdo, ['mode' => 'brand', 'brand' => $brand], $days);
+            $checks['brandFilterStoreDenominator'] = $brandDashboard['summary']['totalStores'] <= $summary['totalStores'];
+            $checks['brandFilterDeviceDenominator'] = $brandDashboard['summary']['totalDevices'] <= $summary['totalDevices'];
+        }
+        $firstStore = $dashboard['stores'][0] ?? null;
+        if ($firstStore) {
+            $scorecard = self::store($pdo, (string)$firstStore['storeId'], $days);
+            $store = $scorecard['store'];
+            $checks['siteStatusCountsReconcile'] =
+                $store['healthy'] + $store['warning'] + $store['critical'] + $store['offline'] === $store['expectedDevices'];
+            $checks['siteDeviceRowsReconcile'] = count($scorecard['devices']) === $store['expectedDevices'];
+        }
+        $failed = array_keys(array_filter($checks, static fn(bool $passed): bool => !$passed));
+        return [
+            'passed' => count($failed) === 0,
+            'failedChecks' => $failed,
+            'period' => $dashboard['period'],
+            'summary' => $summary,
+            'products' => $products,
+            'checks' => $checks,
+        ];
+    }
+
     public static function buildFixtureModel(array $snapshots, array $storeMetadata = []): array
     {
         $uploads = array_map(static fn(array $snapshot): array => [

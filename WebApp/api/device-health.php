@@ -6,14 +6,46 @@ require_once __DIR__ . '/DeviceHealthService.php';
 
 header('Content-Type: application/json');
 
+function deviceHealthAutomationToken(): string
+{
+    $configPath = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'config.local.php';
+    if (!is_file($configPath)) {
+        return '';
+    }
+    $config = require $configPath;
+    return (string)($config['automation']['import_token'] ?? '');
+}
+
+function deviceHealthRequestToken(): string
+{
+    $header = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '';
+    if (preg_match('/^Bearer\s+(.+)$/i', $header, $matches)) {
+        return trim($matches[1]);
+    }
+    return trim((string)($_SERVER['HTTP_X_QU_IMPORT_TOKEN'] ?? ''));
+}
+
 try {
     $pdo = Database::fromConfig();
     if (!$pdo) {
         throw new RuntimeException('Database configuration is required for Device Health.');
     }
-    Auth::requireSection($pdo, Database::SECTION_DEVICE_HEALTH);
     $action = (string)($_GET['action'] ?? 'dashboard');
     $days = (int)($_GET['days'] ?? DeviceHealthService::DEFAULT_DAYS);
+
+    if ($action === 'validate') {
+        $expectedToken = deviceHealthAutomationToken();
+        $providedToken = deviceHealthRequestToken();
+        if ($expectedToken === '' || $providedToken === '' || !hash_equals($expectedToken, $providedToken)) {
+            http_response_code(401);
+            echo json_encode(['ok' => false, 'error' => 'Unauthorized.']);
+            exit;
+        }
+        echo json_encode(['ok' => true, 'validation' => DeviceHealthService::validateProductionData($pdo, $days)], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    Auth::requireSection($pdo, Database::SECTION_DEVICE_HEALTH);
 
     if ($action === 'dashboard') {
         $selectedBrands = array_values(array_filter(array_map('trim', explode('|', (string)($_GET['selectedBrands'] ?? '')))));
