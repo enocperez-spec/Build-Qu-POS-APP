@@ -1,10 +1,10 @@
 # Release Notes
 
-Current application version: `v004.09`
+Current application version: `v005.00`
 
 Version sequence: `v001.01` through `v001.09`, then `v002.00`, followed by
-`v002.00` through `v002.09`, then `v003.00` through `v003.09`, then `v004.00`,
-`v004.01`, `v004.02`, `v004.03`, `v004.04`, `v004.05`, `v004.06`, `v004.07`, `v004.08`, `v004.09`, and so on.
+`v002.00` through `v002.09`, then `v003.00` through `v003.09`, then `v004.00`
+through `v004.09`, then `v005.00` through `v005.09`, then `v006.00`, and so on.
 
 Going forward, every approved and completed feature, improvement, bug fix, or
 security change should add a new entry here and update the current application
@@ -14,6 +14,7 @@ Newest releases are listed first.
 
 | Version | Release Date And Time | Type | Title | Description | Status |
 | --- | --- | --- | --- | --- | --- |
+| v005.00 | 2026-08-11 22:35:00 -04:00 | Improvement | Production POS Version Label | Changed the dashboard section title from Downloadable QU POS Versions to Downloadable Production Qu POS Version for clearer production reporting. | Released |
 | v004.09 | 2026-08-11 22:25:00 -04:00 | Improvement | Stable Version Adoption Dashboard | Updated the Kiosk, QuBox, QuKDS, and QuORB dashboard cards to display the current stable version and its usage percentage. The dashboard layout was also adjusted to display all seven metric cards in one row on standard desktop screens. | Released |
 | v004.08 | 2026-08-11 22:05:00 -04:00 | Improvement | Dashboard Metric Card Alignment | Improved dashboard metric card alignment so labels, icons, values, and metadata stay grouped inside each card, with long version numbers kept together. | Released |
 | v004.07 | 2026-08-11 21:50:00 -04:00 | Improvement | Compact Dashboard Sync Status Bar | Replaced the large dashboard sync and job health cards with a slimmer single-line status bar to reduce vertical space. | Released |

@@ -328,6 +328,14 @@ const FEATURE_RELEASES = [
         type: "Improvement",
         status: "Released",
     },
+    {
+        version: "v005.00",
+        releasedAt: "2026-08-11 22:35:00 -04:00",
+        title: "Production POS Version Label",
+        description: "Changed the dashboard section title from Downloadable QU POS Versions to Downloadable Production Qu POS Version for clearer production reporting.",
+        type: "Improvement",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
@@ -1021,7 +1029,7 @@ function renderReleaseNotes(returnPage = state.currentPage || "dashboard") {
             </div>
             <button class="btn back-btn" id="backToApplicationBtn" type="button">Back to Application</button>
             <div class="release-rules">
-                Version sequence: v001.01 through v001.09, then v002.00 through v002.09, then v003.00 through v003.09, then v004.00 through v004.09, then v005.00, v005.01, and so on.
+                Version sequence: v001.01 through v001.09, then v002.00 through v002.09, then v003.00 through v003.09, then v004.00 through v004.09, then v005.00 through v005.09, then v006.00, v006.01, and so on.
             </div>
             <div class="release-list">
                 ${FEATURE_RELEASES.slice().reverse().map(release => `
@@ -1581,7 +1589,7 @@ function tabContent(report, tab) {
 
 function currentTab(report) {
     return `
-        ${versionSection("Downloadable QU POS Versions", report.downloadableVersions, report, "pos-versions")}
+        ${versionSection("Downloadable Production Qu POS Version", report.downloadableVersions, report, "pos-versions")}
         ${outdatedSection(report)}
         ${versionSection("Downloadable Kiosk Versions", report.kioskVersions, report, "kiosk-versions")}
         ${versionSection("QuBox Versions", report.quboxVersions, report, "qubox-versions")}
