@@ -35,12 +35,14 @@ alerts, and historical comparisons.
   details and filtered out-of-date stores.
 - Keeps dashboard metric card labels, icons, values, and metadata grouped inside
   each card for cleaner alignment.
+- Shows stable version adoption on Kiosk, QuBox, QuKDS, and QuORB dashboard
+  cards, including usage percentage when reporting data is available.
 - Shows a polished top-right user profile card with role, dashboard last
   updated time, and logout action.
 
 ## Release Notes
 
-The current application version is `v004.08`.
+The current application version is `v004.09`.
 
 Release history is tracked in [docs/FEATURE_RELEASES.md](docs/FEATURE_RELEASES.md).
 Every completed request receives the next version number and remains available

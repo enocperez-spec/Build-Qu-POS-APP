@@ -565,8 +565,8 @@ h2 {
 
 .summary-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(225px, 1fr));
-    gap: 16px;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: clamp(8px, .75vw, 14px);
     margin: 18px 0;
 }
 
@@ -576,13 +576,13 @@ h2 {
     background:
         linear-gradient(135deg, rgba(35, 199, 255, .08), transparent 38%),
         rgba(16, 29, 50, .88);
-    padding: 16px;
+    padding: clamp(12px, .9vw, 16px);
 }
 
 .card .label {
     display: block;
     color: #d9ecff;
-    font-size: 13px;
+    font-size: clamp(11px, .72vw, 13px);
     line-height: 1.15;
     font-weight: 900;
     text-align: center;
@@ -590,7 +590,7 @@ h2 {
 
 .card .value {
     display: block;
-    font-size: clamp(22px, 1.65vw, 30px);
+    font-size: clamp(20px, 1.38vw, 28px);
     line-height: 1;
     font-weight: 950;
     overflow-wrap: normal;
@@ -603,7 +603,7 @@ h2 {
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 94px;
+    min-height: 116px;
 }
 
 .dashboard-shortcut {
@@ -624,8 +624,8 @@ h2 {
 }
 
 .metric-icon {
-    width: clamp(28px, 2.4vw, 36px);
-    height: clamp(28px, 2.4vw, 36px);
+    width: clamp(24px, 1.8vw, 34px);
+    height: clamp(24px, 1.8vw, 34px);
     display: grid;
     place-items: center;
     flex: 0 0 auto;
@@ -653,13 +653,13 @@ h2 {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: clamp(8px, .8vw, 12px);
+    gap: clamp(6px, .55vw, 10px);
     max-width: 100%;
     margin-top: 10px;
 }
 
 .metric-stable .value {
-    font-size: clamp(18px, 1.15vw, 23px);
+    font-size: clamp(15px, .95vw, 21px);
     letter-spacing: -.045em;
     line-height: 1.05;
     word-break: normal;
@@ -669,9 +669,17 @@ h2 {
 .metric-meta {
     display: block;
     color: #c6d5e6;
-    font-size: 12px;
+    font-size: clamp(11px, .68vw, 12px);
     margin-top: 7px;
     text-align: center;
+}
+
+.metric-kiosk .value,
+.metric-qubox .value,
+.metric-qukds .value,
+.metric-quorb .value {
+    font-size: clamp(14px, .88vw, 20px);
+    letter-spacing: -.03em;
 }
 
 .metric-terminals,
@@ -1109,8 +1117,13 @@ details.version-detail summary span {
     .sidebar { position: static; height: auto; }
     .upload-panel { grid-template-columns: 1fr; }
     .dashboard-selector { grid-template-columns: 1fr; }
+    .summary-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     .topbar { align-items: center; }
     .user-profile-card { min-width: 340px; }
+}
+
+@media (max-width: 1500px) and (min-width: 1101px) {
+    .summary-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); }
 }
 
 @media (max-width: 880px) {
@@ -1123,6 +1136,8 @@ details.version-detail summary span {
         min-width: 0;
         max-width: none;
     }
+
+    .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 640px) {

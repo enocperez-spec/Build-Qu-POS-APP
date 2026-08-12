@@ -215,6 +215,10 @@ final class ReportService
         $stable = self::currentStableVersion($posVersions);
         $currentStableVersion = $stable['version'] ?? 'N/A';
         $currentStableVersionCount = $stable['terminalCount'] ?? 0;
+        $kioskStable = self::stableAdoption($kioskVersions, count($kioskRows));
+        $quboxStable = self::stableAdoption($quboxVersions, count($quboxRows));
+        $qukdsStable = self::stableAdoption($qukdsVersions, count($qukdsRows));
+        $quorbStable = self::stableAdoption($quorbVersions, count($quorbRows));
 
         $outOfDateRows = [];
         if ($currentStableVersion !== 'N/A') {
@@ -246,6 +250,22 @@ final class ReportService
                 'quboxVersions' => count($quboxVersions),
                 'qukdsVersions' => count($qukdsVersions),
                 'quorbVersions' => count($quorbVersions),
+                'kioskStableVersion' => $kioskStable['version'],
+                'kioskStableUsagePercent' => $kioskStable['usagePercent'],
+                'kioskStableDeviceCount' => $kioskStable['deviceCount'],
+                'kioskReportingDevices' => $kioskStable['totalDevices'],
+                'quboxStableVersion' => $quboxStable['version'],
+                'quboxStableUsagePercent' => $quboxStable['usagePercent'],
+                'quboxStableDeviceCount' => $quboxStable['deviceCount'],
+                'quboxReportingDevices' => $quboxStable['totalDevices'],
+                'qukdsStableVersion' => $qukdsStable['version'],
+                'qukdsStableUsagePercent' => $qukdsStable['usagePercent'],
+                'qukdsStableDeviceCount' => $qukdsStable['deviceCount'],
+                'qukdsReportingDevices' => $qukdsStable['totalDevices'],
+                'quorbStableVersion' => $quorbStable['version'],
+                'quorbStableUsagePercent' => $quorbStable['usagePercent'],
+                'quorbStableDeviceCount' => $quorbStable['deviceCount'],
+                'quorbReportingDevices' => $quorbStable['totalDevices'],
                 'otherVersions' => count($otherVersions),
                 'trends' => $trends,
             ],
@@ -296,6 +316,26 @@ final class ReportService
                 'previousPercent' => $previousUsage,
                 'deltaPercent' => round($currentUsage - $previousUsage, 1),
             ],
+        ];
+    }
+
+    private static function stableAdoption(array $versions, int $totalDevices): array
+    {
+        $stable = self::currentStableVersion($versions);
+        if (!$stable || $totalDevices <= 0) {
+            return [
+                'version' => 'No Data',
+                'usagePercent' => null,
+                'deviceCount' => 0,
+                'totalDevices' => $totalDevices,
+            ];
+        }
+
+        return [
+            'version' => $stable['version'],
+            'usagePercent' => self::percent((int)$stable['terminalCount'], $totalDevices),
+            'deviceCount' => (int)$stable['terminalCount'],
+            'totalDevices' => $totalDevices,
         ];
     }
 

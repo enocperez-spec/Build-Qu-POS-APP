@@ -16,7 +16,7 @@ try {
         if ($pdo) {
             $latest = Database::latestReport($pdo);
             $report = $latest ? ReportService::reportFromFileUrl(dirname(__DIR__), (string)$latest['jsonUrl']) : null;
-            if ($report && (!array_key_exists('qukdsVersions', $report) || !array_key_exists('quorbVersions', $report) || empty($report['summary']['trends'])) && !empty($latest['currentUploadId'])) {
+            if ($report && (!array_key_exists('qukdsVersions', $report) || !array_key_exists('quorbVersions', $report) || !array_key_exists('kioskStableVersion', $report['summary'] ?? []) || empty($report['summary']['trends'])) && !empty($latest['currentUploadId'])) {
                 $fresh = ReportService::reportFromUpload($pdo, (int)$latest['currentUploadId'], dirname(__DIR__));
                 $report = $fresh['report'] ?? $report;
             }

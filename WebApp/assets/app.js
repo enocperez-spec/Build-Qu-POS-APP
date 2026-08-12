@@ -320,6 +320,14 @@ const FEATURE_RELEASES = [
         type: "Improvement",
         status: "Released",
     },
+    {
+        version: "v004.09",
+        releasedAt: "2026-08-11 22:25:00 -04:00",
+        title: "Stable Version Adoption Dashboard",
+        description: "Updated the Kiosk, QuBox, QuKDS, and QuORB dashboard cards to display the current stable version and its usage percentage. The dashboard layout was also adjusted to display all seven metric cards in one row on standard desktop screens.",
+        type: "Improvement",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
@@ -1013,7 +1021,7 @@ function renderReleaseNotes(returnPage = state.currentPage || "dashboard") {
             </div>
             <button class="btn back-btn" id="backToApplicationBtn" type="button">Back to Application</button>
             <div class="release-rules">
-                Version sequence: v001.01 through v001.09, then v002.00 through v002.09, then v003.00 through v003.09, then v004.00, v004.01, v004.02, v004.03, v004.04, v004.05, v004.06, v004.07, v004.08, and so on.
+                Version sequence: v001.01 through v001.09, then v002.00 through v002.09, then v003.00 through v003.09, then v004.00 through v004.09, then v005.00, v005.01, and so on.
             </div>
             <div class="release-list">
                 ${FEATURE_RELEASES.slice().reverse().map(release => `
@@ -1513,10 +1521,10 @@ function summaryCards(report) {
             ${metricCard("POS App Terminals", s.posAppTerminals, "Total terminals", "terminals", "", "pos")}
             ${metricCard("Current Stable Version", s.currentStableVersion, `${s.currentStableVersionCount} terminals | ${formatPercent(s.currentStableVersionUsagePercent)} stable usage`, "stable", "", "stable")}
             ${metricCard("Out-Of-Date Stores", s.outOfDateStores, "Stores below stable", "outdated", "", "outdated-stores")}
-            ${metricCard("Kiosk Versions", s.kioskVersions, "Active versions", "kiosk", "", "kiosk")}
-            ${metricCard("QuBox Versions", s.quboxVersions, "Active versions", "qubox", "", "qubox")}
-            ${metricCard("QuKDS Versions", s.qukdsVersions || 0, "Active versions", "qukds", "", "qukds")}
-            ${metricCard("QuORB Versions", s.quorbVersions || 0, "Order Ready Boards", "quorb", "", "quorb")}
+            ${appVersionMetricCard("Kiosk", s.kioskStableVersion, s.kioskStableUsagePercent, "kiosk")}
+            ${appVersionMetricCard("QuBox", s.quboxStableVersion, s.quboxStableUsagePercent, "qubox")}
+            ${appVersionMetricCard("QuKDS", s.qukdsStableVersion, s.qukdsStableUsagePercent, "qukds")}
+            ${appVersionMetricCard("QuORB", s.quorbStableVersion, s.quorbStableUsagePercent, "quorb")}
         </div>`;
 }
 
@@ -1537,6 +1545,13 @@ function metricCard(label, value, meta, type, trend = "", shortcut = "") {
                 ${trend}
             </div>
         </button>`;
+}
+
+function appVersionMetricCard(label, stableVersion, usagePercent, type) {
+    const hasData = stableVersion && stableVersion !== "No Data" && usagePercent !== null && usagePercent !== undefined;
+    const value = hasData ? stableVersion : "No Data";
+    const meta = hasData ? `Usage: ${formatPercent(usagePercent)}` : "No reporting data";
+    return metricCard(label, value, meta, type, "", type);
 }
 
 function formatPercent(value) {
