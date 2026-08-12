@@ -368,6 +368,14 @@ const FEATURE_RELEASES = [
         type: "Improvement",
         status: "Released",
     },
+    {
+        version: "v005.05",
+        releasedAt: "2026-08-11 23:30:00 -04:00",
+        title: "Store Export Modal Handling",
+        description: "Updated the cloud Store Information export automation to dismiss the QU EI What's New modal after login so scheduled store syncs can continue to the export action.",
+        type: "Bug Fix",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;

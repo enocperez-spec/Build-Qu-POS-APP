@@ -113,6 +113,20 @@ async function isLoginReady(page) {
   return usernameInput(page).isVisible().catch(() => false);
 }
 
+async function dismissBlockingModals(page) {
+  const modal = page.locator('.modal, [role="dialog"], .v-dialog, .e-dialog').filter({ hasText: /what'?s new|version|released/i }).first();
+  if (!(await modal.isVisible().catch(() => false))) return false;
+
+  console.log('Blocking release notes modal detected.');
+  await clickFirst(page, [
+    { name: 'modal Close button', locator: p => modal.locator('button, [role="button"]').filter({ hasText: /^close$/i }) },
+    { name: 'modal X button', locator: p => modal.locator('button, [role="button"]').filter({ hasText: /^×$|^x$/i }) },
+    { name: 'page Close button', locator: p => p.locator('button, [role="button"]').filter({ hasText: /^close$/i }) },
+  ]);
+  await page.waitForTimeout(1000);
+  return true;
+}
+
 async function waitForLoginOrActions(page) {
   await Promise.race([
     usernameInput(page).waitFor({ state: 'visible', timeout: settings.timeoutMs }).catch(() => {}),
@@ -143,16 +157,19 @@ async function loginIfNeeded(page) {
   await page.waitForLoadState('networkidle', { timeout: settings.timeoutMs }).catch(() => {});
   await page.waitForURL(url => !/\/login\b/i.test(url.pathname), { timeout: 30000 }).catch(() => {});
   await page.waitForTimeout(2500);
+  await dismissBlockingModals(page);
   if (await isLoginReady(page)) throw new Error('QU Admin login did not complete.');
 }
 
 async function ensureTerminalPage(page) {
   for (let attempt = 1; attempt <= 2; attempt++) {
     await loginIfNeeded(page);
+    await dismissBlockingModals(page);
     if (await isActionsReady(page)) return;
     await page.goto(settings.quUrl, { waitUntil: 'domcontentloaded', timeout: settings.timeoutMs });
   }
   await waitForLoginOrActions(page);
+  await dismissBlockingModals(page);
   if (!(await isActionsReady(page))) {
     throw new Error(`QU Admin terminals page did not become ready. Current URL: ${page.url()}`);
   }

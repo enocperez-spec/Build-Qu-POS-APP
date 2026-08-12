@@ -1,6 +1,6 @@
 # Release Notes
 
-Current application version: `v005.04`
+Current application version: `v005.05`
 
 Version sequence: `v001.01` through `v001.09`, then `v002.00`, followed by
 `v002.00` through `v002.09`, then `v003.00` through `v003.09`, then `v004.00`
@@ -14,6 +14,7 @@ Newest releases are listed first.
 
 | Version | Release Date And Time | Type | Title | Description | Status |
 | --- | --- | --- | --- | --- | --- |
+| v005.05 | 2026-08-11 23:30:00 -04:00 | Bug Fix | Store Export Modal Handling | Updated the cloud Store Information export automation to dismiss the QU EI What's New modal after login so scheduled store syncs can continue to the export action. | Released |
 | v005.04 | 2026-08-11 23:15:00 -04:00 | Improvement | Store Status Badge Color Polish | Updated store status badge colors so Live displays in green and Not Operational displays in gray for clearer visual separation. | Released |
 | v005.03 | 2026-08-11 23:05:00 -04:00 | Improvement | Store Operational Status Badges | Added store status indicators to version drill-down tables so each store can show Live, Not Operational, or No Store Data from the latest QU EI Store Information import. | Released |
 | v005.02 | 2026-08-11 22:55:00 -04:00 | Improvement | Product-Specific Version Card Labels | Updated version detail cards so POS uses Terminals, while Kiosk, QuBox, QuKDS, and QuORB sections show product-specific device labels with live device and store counts. | Released |

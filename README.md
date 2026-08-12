@@ -29,6 +29,8 @@ alerts, and historical comparisons.
   Admin and importing the CSV into the web app.
 - Includes QU EI Store Information synchronization with SQL storage for the
   latest exported store data.
+- Handles QU EI release-note popups during cloud Store Information exports so
+  scheduled store syncs can continue after login.
 - Shows a compact dashboard sync status bar for latest terminal sync, latest
   store sync, and QU EI automation status.
 - Lets users click dashboard metric cards to jump directly into matching report
@@ -44,7 +46,7 @@ alerts, and historical comparisons.
 
 ## Release Notes
 
-The current application version is `v005.04`.
+The current application version is `v005.05`.
 
 Release history is tracked in [docs/FEATURE_RELEASES.md](docs/FEATURE_RELEASES.md).
 Every completed request receives the next version number and remains available
