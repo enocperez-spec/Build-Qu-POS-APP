@@ -410,7 +410,7 @@ const FEATURE_RELEASES = [
     },
     {
         version: "v006.00",
-        releasedAt: "2026-08-12 00:20:00 -04:00",
+        releasedAt: "August 11, 2026 23:15 EST",
         title: "Protected Store Status Lookup",
         description: "Added a protected store-status lookup endpoint so support users and automation can verify a store's latest QU EI operational status by store name or store ID.",
         type: "Feature",

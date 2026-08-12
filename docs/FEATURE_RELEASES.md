@@ -15,7 +15,7 @@ Newest releases are listed first.
 
 | Version | Release Date And Time | Type | Title | Description | Status |
 | --- | --- | --- | --- | --- | --- |
-| v006.00 | 2026-08-12 00:20:00 -04:00 | Feature | Protected Store Status Lookup | Added a protected store-status lookup endpoint so support users and automation can verify a store's latest QU EI operational status by store name or store ID. | Released |
+| v006.00 | August 11, 2026 23:15 EST | Feature | Protected Store Status Lookup | Added a protected store-status lookup endpoint so support users and automation can verify a store's latest QU EI operational status by store name or store ID. | Released |
 | v005.09 | 2026-08-12 00:10:00 -04:00 | Bug Fix | Store Export Selector Hardening | Updated the QU EI Store Information export automation to use the Stores page export test ID and pair export clicks with the download listener for clearer failures. | Released |
 | v005.08 | 2026-08-12 00:00:00 -04:00 | Bug Fix | Store Export Menu Label Fix | Updated the QU EI Store Information export automation to click the current Export Stores Info menu label used on the Stores page. | Released |
 | v005.07 | 2026-08-11 23:50:00 -04:00 | Bug Fix | Store Export Login Detection Fix | Fixed QU EI Store Information export automation so post-login page inputs are not mistaken for the login form after the What's New modal closes. | Released |
