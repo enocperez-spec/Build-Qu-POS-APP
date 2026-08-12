@@ -37,7 +37,7 @@ final class ReportService
             $previousName = $previousFile['name'] ?? null;
         }
 
-        return self::generateFromRows($currentRows, $currentFile['name'], $previousRows, $previousName, $appRoot, $currentUploadId, $previousUploadId, true, self::storeStatusMap($pdo));
+        return self::generateFromRows($currentRows, $currentFile['name'], $previousRows, $previousName, $appRoot, $currentUploadId, $previousUploadId, true, self::storeMetadataMap($pdo));
     }
 
     public static function generateFromLatestUploads(PDO $pdo, string $appRoot): array
@@ -59,7 +59,7 @@ final class ReportService
             (int)$currentUpload['id'],
             $previousUpload ? (int)$previousUpload['id'] : null,
             true,
-            self::storeStatusMap($pdo)
+            self::storeMetadataMap($pdo)
         );
     }
 
@@ -81,7 +81,7 @@ final class ReportService
             (int)$currentUpload['id'],
             $previousUpload ? (int)$previousUpload['id'] : null,
             false,
-            self::storeStatusMap($pdo)
+            self::storeMetadataMap($pdo)
         );
         $result['selectedUpload'] = $currentUpload;
         $result['previousUpload'] = $previousUpload;
@@ -108,7 +108,7 @@ final class ReportService
         return is_array($decoded) ? $decoded : null;
     }
 
-    private static function generateFromRows(array $currentRows, string $sourceName, ?array $previousRows, ?string $previousName, string $appRoot, ?int $currentUploadId, ?int $previousUploadId, bool $writeFiles = true, array $storeStatusMap = []): array
+    private static function generateFromRows(array $currentRows, string $sourceName, ?array $previousRows, ?string $previousName, string $appRoot, ?int $currentUploadId, ?int $previousUploadId, bool $writeFiles = true, array $storeMetadataMap = []): array
     {
         if (count($currentRows) === 0) {
             throw new RuntimeException('The current CSV does not contain any rows.');
@@ -119,7 +119,7 @@ final class ReportService
             $previousUploadId = null;
             }
 
-        $report = self::buildReport($currentRows, $sourceName, $previousRows, $previousName, $storeStatusMap);
+        $report = self::buildReport($currentRows, $sourceName, $previousRows, $previousName, $storeMetadataMap);
         $report['currentUploadId'] = $currentUploadId;
         $report['previousUploadId'] = $previousUploadId;
         $dateFolder = date('Y-m-d');
@@ -160,10 +160,13 @@ final class ReportService
         ];
     }
 
-    private static function storeStatusMap(?PDO $pdo): array
+    private static function storeMetadataMap(?PDO $pdo): array
     {
         if (!$pdo || !class_exists('Database')) {
             return [];
+        }
+        if (method_exists('Database', 'latestStoreMetadataMap')) {
+            return Database::latestStoreMetadataMap($pdo);
         }
         return Database::latestStoreStatusMap($pdo);
     }
@@ -193,7 +196,7 @@ final class ReportService
         return $items;
     }
 
-    private static function buildReport(array $rows, string $sourceName, ?array $previousRows, ?string $previousName, array $storeStatusMap = []): array
+    private static function buildReport(array $rows, string $sourceName, ?array $previousRows, ?string $previousName, array $storeMetadataMap = []): array
     {
         $rowsWithVersions = array_values(array_filter($rows, static fn(array $row): bool => trim((string)($row['Current Version'] ?? '')) !== ''));
         if (count($rowsWithVersions) === 0) {
@@ -208,12 +211,12 @@ final class ReportService
         $quorbRows = array_values(array_filter($otherRows, static fn(array $row): bool => self::isQuOrbRow($row)));
         $remainingOtherRows = array_values(array_filter($otherRows, static fn(array $row): bool => !self::isKioskRow($row) && !self::isQuBoxRow($row) && !self::isQuKdsRow($row) && !self::isQuOrbRow($row)));
 
-        $posVersions = self::versionGroups($posRows, 'pos', $storeStatusMap);
-        $kioskVersions = self::versionGroups($kioskRows, 'kiosk', $storeStatusMap);
-        $quboxVersions = self::versionGroups($quboxRows, 'qubox', $storeStatusMap);
-        $qukdsVersions = self::versionGroups($qukdsRows, 'qukds', $storeStatusMap);
-        $quorbVersions = self::versionGroups($quorbRows, 'quorb', $storeStatusMap);
-        $otherVersions = self::versionGroups($remainingOtherRows, 'other', $storeStatusMap);
+        $posVersions = self::versionGroups($posRows, 'pos', $storeMetadataMap);
+        $kioskVersions = self::versionGroups($kioskRows, 'kiosk', $storeMetadataMap);
+        $quboxVersions = self::versionGroups($quboxRows, 'qubox', $storeMetadataMap);
+        $qukdsVersions = self::versionGroups($qukdsRows, 'qukds', $storeMetadataMap);
+        $quorbVersions = self::versionGroups($quorbRows, 'quorb', $storeMetadataMap);
+        $otherVersions = self::versionGroups($remainingOtherRows, 'other', $storeMetadataMap);
 
         usort($posVersions, static fn(array $a, array $b): int => version_compare($b['version'], $a['version']));
         usort($kioskVersions, static fn(array $a, array $b): int => $b['terminalCount'] <=> $a['terminalCount'] ?: strcmp($b['version'], $a['version']));
@@ -238,7 +241,7 @@ final class ReportService
         $stableUsagePercent = self::percent($currentStableVersionCount, count($posRows));
         $trends = $previousRows ? self::dashboardTrends($posRows, $previousRows, $currentStableVersion, count($outOfDateRows)) : null;
 
-        $storeReport = self::storeVersionReport($posRows, $currentStableVersion, $storeStatusMap);
+        $storeReport = self::storeVersionReport($posRows, $currentStableVersion, $storeMetadataMap);
         $mixedStores = array_values(array_filter($storeReport, static fn(array $store): bool => $store['uniqueVersionCount'] > 1));
         $staleTerminals = self::staleTerminals($posRows);
         $farBehindStores = array_values(array_filter($storeReport, static fn(array $store): bool => $store['outOfDateTerminalCount'] > 0));
@@ -383,12 +386,12 @@ final class ReportService
         return $rows;
     }
 
-    private static function versionGroups(array $rows, string $type, array $storeStatusMap = []): array
+    private static function versionGroups(array $rows, string $type, array $storeMetadataMap = []): array
     {
         $groups = self::groupBy($rows, 'Current Version');
         $versions = [];
         foreach ($groups as $version => $versionRows) {
-            $storeRows = self::storeRows($versionRows, $storeStatusMap);
+            $storeRows = self::storeRows($versionRows, $storeMetadataMap);
             $url = match ($type) {
                 'pos' => self::POS_BASE_URL . '/Qu.POS_' . $version . '.zip',
                 'kiosk' => self::KIOSK_BASE_URL . '/Kiosk-Setup-' . $version . '.exe',
@@ -407,7 +410,7 @@ final class ReportService
         return $versions;
     }
 
-    private static function storeRows(array $rows, array $storeStatusMap = []): array
+    private static function storeRows(array $rows, array $storeMetadataMap = []): array
     {
         $groups = self::groupBy($rows, 'Store ID');
         $stores = [];
@@ -416,7 +419,8 @@ final class ReportService
             $stores[] = [
                 'storeId' => $storeId,
                 'storeName' => (string)($first['Store Name'] ?? ''),
-                'storeStatus' => self::storeStatus((string)$storeId, $storeStatusMap),
+                'storeStatus' => self::storeStatus((string)$storeId, $storeMetadataMap),
+                'storeBrands' => self::storeBrands((string)$storeId, (string)($first['Store Name'] ?? ''), $storeMetadataMap),
                 'terminalCount' => count($storeRows),
                 'terminalTypes' => self::uniqueJoin($storeRows, 'Terminal Type'),
                 'latestSeen' => self::latestSeen($storeRows),
@@ -426,7 +430,7 @@ final class ReportService
         return $stores;
     }
 
-    private static function storeVersionReport(array $rows, string $stableVersion, array $storeStatusMap = []): array
+    private static function storeVersionReport(array $rows, string $stableVersion, array $storeMetadataMap = []): array
     {
         $stores = [];
         foreach (self::groupBy($rows, 'Store ID') as $storeId => $storeRows) {
@@ -444,7 +448,8 @@ final class ReportService
             $stores[] = [
                 'storeId' => $storeId,
                 'storeName' => (string)($first['Store Name'] ?? ''),
-                'storeStatus' => self::storeStatus((string)$storeId, $storeStatusMap),
+                'storeStatus' => self::storeStatus((string)$storeId, $storeMetadataMap),
+                'storeBrands' => self::storeBrands((string)$storeId, (string)($first['Store Name'] ?? ''), $storeMetadataMap),
                 'versionsDetected' => implode(', ', $versions),
                 'versionsDetectedList' => $versions,
                 'uniqueVersionCount' => count($versions),
@@ -461,8 +466,46 @@ final class ReportService
 
     private static function storeStatus(string $storeId, array $storeStatusMap): string
     {
-        $status = trim((string)($storeStatusMap[$storeId] ?? ''));
+        $row = $storeStatusMap[$storeId] ?? '';
+        $status = is_array($row) ? trim((string)($row['status'] ?? '')) : trim((string)$row);
         return $status === '' ? 'No Store Data' : $status;
+    }
+
+    private static function storeBrands(string $storeId, string $storeName, array $storeMetadataMap): array
+    {
+        $row = $storeMetadataMap[$storeId] ?? [];
+        $brands = is_array($row) ? (array)($row['brands'] ?? []) : [];
+        $brands = array_merge($brands, self::brandsFromText($storeName), self::brandsFromText((string)($row['storeName'] ?? '')));
+        $brands = array_values(array_unique(array_filter(array_map(
+            static fn(string $brand): string => trim($brand),
+            $brands
+        ))));
+        usort($brands, static fn(string $a, string $b): int => strcasecmp($a, $b));
+        return $brands;
+    }
+
+    private static function brandsFromText(string $text): array
+    {
+        $normalized = strtolower($text);
+        $matches = [];
+        $patterns = [
+            'Auntie Anne\'s' => ['auntie anne', '[aa]', 'aa-'],
+            'Carvel' => ['carvel', '[cv]', 'cv-', ' cb-', '/ cb-'],
+            'Cinnabon' => ['cinnabon', '[cn]', 'cn-'],
+            'Jamba' => ['jamba', '[ja]', 'ja-'],
+            'Moe\'s' => ['moes', 'moe\'s', '[moes]', 'moes-'],
+            'Schlotzsky\'s' => ['schlotzsky', 'sch-', '[sch]'],
+            'McAlister\'s Deli' => ['mcalister', 'mcalister\'s', 'mcalisters', '[mca]'],
+        ];
+        foreach ($patterns as $brand => $needles) {
+            foreach ($needles as $needle) {
+                if (str_contains($normalized, strtolower($needle))) {
+                    $matches[] = $brand;
+                    break;
+                }
+            }
+        }
+        return $matches;
     }
 
     private static function terminalMap(array $rows): array

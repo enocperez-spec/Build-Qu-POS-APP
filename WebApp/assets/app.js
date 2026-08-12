@@ -13,6 +13,8 @@ const state = {
     settingsTab: "users",
     currentPage: "dashboard",
     releaseNotesReturnPage: "dashboard",
+    baseReport: window.__QU_REPORT__ || null,
+    brandFilter: { mode: "all", brand: "", combination: "", selectedBrands: [], match: "any" },
 };
 
 const FEATURE_RELEASES = [
@@ -448,6 +450,14 @@ const FEATURE_RELEASES = [
         type: "Feature",
         status: "Released",
     },
+    {
+        version: "v006.05",
+        releasedAt: "August 11, 2026 22:17 EST",
+        title: "Co-Brand Dashboard Filtering",
+        description: "Added support for store brand metadata, co-branded store relationships, dashboard brand filters, dynamic co-brand combinations, and filtered exports without double-counting stores.",
+        type: "Feature",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
@@ -660,6 +670,7 @@ function uploadPanel() {
 function renderHome() {
     state.currentPage = "dashboard";
     state.report = null;
+    state.baseReport = null;
     state.selectedUploadId = "";
     app.innerHTML = shell(header() + dashboardUploadSelector() + `<div id="dashboardHealthMount"></div><div id="reportMount">${latestReportLoading()}</div>`, "dashboard");
     bindShell();
@@ -726,11 +737,17 @@ function dateTimeLabel(value) {
     return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString();
 }
 
+function setLoadedReport(report) {
+    state.baseReport = report;
+    state.report = applyBrandFilter(report);
+}
+
 function bindDashboardUploadSelector() {
     document.getElementById("loadUploadReportBtn")?.addEventListener("click", () => {
         const id = document.getElementById("dashboardUploadSelect")?.value || "";
         if (!id) {
             state.report = null;
+            state.baseReport = null;
             state.selectedUploadId = "";
             loadLatestReport();
             return;
@@ -972,6 +989,7 @@ async function logout() {
     await fetch("api/auth.php?action=logout", { method: "POST" });
     state.user = null;
     state.report = null;
+    state.baseReport = null;
     renderAuth();
 }
 
@@ -1018,7 +1036,7 @@ async function generateReport() {
         if (!payload.ok) throw new Error(payload.error || "Report generation failed.");
         setStep(2, "Writing HTML");
         await pause(180);
-        state.report = payload.report;
+        setLoadedReport(payload.report);
         state.htmlUrl = payload.htmlUrl;
         setStep(4, "Done");
         refreshHeaderLastUpdated();
@@ -1042,7 +1060,7 @@ async function loadLatestReport() {
             mount.innerHTML = `<section class="empty" style="margin-top:18px;">No generated reports yet. Tech or Admin users can upload a CSV from the Upload CSV page.</section>`;
             return;
         }
-        state.report = payload.report;
+        setLoadedReport(payload.report);
         state.dashboardHealth = payload.health || null;
         state.htmlUrl = payload.metadata?.url || null;
         refreshHeaderLastUpdated();
@@ -1079,7 +1097,7 @@ async function loadReportFromUpload(id) {
         const response = await fetch(`api/reports.php?action=from-upload&id=${encodeURIComponent(id)}`);
         const payload = await response.json();
         if (!payload.ok) throw new Error(payload.error || "Could not load selected upload report.");
-        state.report = payload.report;
+        setLoadedReport(payload.report);
         state.selectedUploadId = String(id);
         state.htmlUrl = null;
         refreshHeaderLastUpdated();
@@ -1662,6 +1680,7 @@ function reportView(report) {
     const comparisonTab = report.comparison ? `<button class="tab-btn" data-tab="comparison">Comparison</button>` : "";
     return `
         <section class="report">
+            ${brandFilterBar()}
             ${summaryCards(report)}
             <div class="tabs">
                 <button class="tab-btn active" data-tab="current">Current Versions</button>
@@ -1783,9 +1802,10 @@ function versionDetail(item, report, baseline = null, appType = "pos") {
             <summary>${badge(item.version, report, baseline)}<span>${escapeHtml(item.terminalCount)} ${escapeHtml(productName)} across ${escapeHtml(item.storeCount)} stores</span></summary>
             <div class="detail-body">
                 ${item.url ? `<p><a href="${escapeHtml(item.url)}" target="_blank">${escapeHtml(item.url)}</a></p>` : ""}
-                ${simpleTable(["Store ID", "Store Name", "Status", "Terminals", "Types", "Latest Seen"], (item.storeRows || []).map(store => [
+                ${simpleTable(["Store ID", "Store Name", "Brands", "Status", "Terminals", "Types", "Latest Seen"], (item.storeRows || []).map(store => [
                     store.storeId,
                     store.storeName,
+                    storeBrands(store).join(", "),
                     storeStatusBadge(store.storeStatus),
                     store.terminalCount,
                     store.terminalTypes,
@@ -1808,9 +1828,10 @@ function outdatedSection(report) {
 }
 
 function storesTab(report) {
-    return simpleTable(["Store ID", "Store Name", "Versions Detected", "Most Common Version", "Out-Of-Date Terminals", "Total POS Terminals", "Latest Seen"], report.stores.map(store => [
+    return simpleTable(["Store ID", "Store Name", "Brands", "Versions Detected", "Most Common Version", "Out-Of-Date Terminals", "Total POS Terminals", "Latest Seen"], report.stores.map(store => [
         store.storeId,
         store.storeName,
+        storeBrands(store).join(", "),
         (store.versionsDetectedList || []).map(version => badge(version, report)).join(""),
         badge(store.mostCommonVersion, report),
         `${escapeHtml(store.outOfDateTerminalCount)}${Number(store.outOfDateTerminalCount) > 0 ? '<span class="sr-only"> out-of-date-store</span>' : ""}`,
@@ -1870,7 +1891,272 @@ function bindReport() {
     });
     document.getElementById("exportCsvBtn")?.addEventListener("click", () => exportCurrentView("csv"));
     document.getElementById("exportExcelBtn")?.addEventListener("click", () => exportCurrentView("excel"));
+    bindBrandFilters();
     bindSortableHeaders();
+}
+
+function brandFilterBar() {
+    const base = state.baseReport || state.report;
+    const brands = availableBrands(base);
+    const combinations = availableBrandCombinations(base);
+    const selectedBrands = state.brandFilter.selectedBrands || [];
+    const primaryValue = state.brandFilter.mode === "brand" ? `brand:${state.brandFilter.brand}` : state.brandFilter.mode;
+    return `
+        <section class="brand-filter-panel">
+            <div class="brand-filter-heading">
+                <span class="label">Dashboard Brand Filter</span>
+                <strong>${escapeHtml(activeBrandFilterLabel())}</strong>
+            </div>
+            <div class="brand-filter-controls">
+                <select class="text-input brand-select" id="brandFilterSelect">
+                    <option value="all"${primaryValue === "all" ? " selected" : ""}>All Brands</option>
+                    ${brands.map(brand => `<option value="brand:${escapeHtml(brand)}"${primaryValue === `brand:${brand}` ? " selected" : ""}>${escapeHtml(brand)}</option>`).join("")}
+                    <option value="cobranded"${primaryValue === "cobranded" ? " selected" : ""}>Co-Branded</option>
+                    <option value="combination"${primaryValue === "combination" ? " selected" : ""}>Select Combination</option>
+                </select>
+                ${state.brandFilter.mode === "cobranded" ? `
+                    <select class="text-input brand-select" id="coBrandCombinationSelect">
+                        <option value="">All Co-Branded Combinations</option>
+                        ${combinations.map(combo => `<option value="${escapeHtml(combo)}"${state.brandFilter.combination === combo ? " selected" : ""}>${escapeHtml(combo)}</option>`).join("")}
+                    </select>` : ""}
+                ${state.brandFilter.mode === "combination" ? `
+                    <select class="text-input brand-select multi-brand-select" id="multiBrandSelect" multiple size="${Math.min(Math.max(brands.length, 4), 7)}">
+                        ${brands.map(brand => `<option value="${escapeHtml(brand)}"${selectedBrands.includes(brand) ? " selected" : ""}>${escapeHtml(brand)}</option>`).join("")}
+                    </select>
+                    <select class="text-input brand-select" id="brandMatchSelect">
+                        <option value="any"${state.brandFilter.match === "any" ? " selected" : ""}>Contains Any</option>
+                        <option value="all"${state.brandFilter.match === "all" ? " selected" : ""}>Contains All</option>
+                        <option value="exact"${state.brandFilter.match === "exact" ? " selected" : ""}>Exact Combination</option>
+                    </select>` : ""}
+            </div>
+        </section>`;
+}
+
+function bindBrandFilters() {
+    document.getElementById("brandFilterSelect")?.addEventListener("change", event => {
+        const value = event.target.value;
+        if (value.startsWith("brand:")) {
+            state.brandFilter = { mode: "brand", brand: value.slice(6), combination: "", selectedBrands: [], match: "any" };
+        } else {
+            state.brandFilter = { mode: value, brand: "", combination: "", selectedBrands: [], match: "any" };
+        }
+        renderFilteredReport();
+    });
+    document.getElementById("coBrandCombinationSelect")?.addEventListener("change", event => {
+        state.brandFilter = { ...state.brandFilter, combination: event.target.value };
+        renderFilteredReport();
+    });
+    document.getElementById("multiBrandSelect")?.addEventListener("change", event => {
+        const selectedBrands = [...event.target.selectedOptions].map(option => option.value);
+        state.brandFilter = { ...state.brandFilter, selectedBrands };
+        renderFilteredReport();
+    });
+    document.getElementById("brandMatchSelect")?.addEventListener("change", event => {
+        state.brandFilter = { ...state.brandFilter, match: event.target.value };
+        renderFilteredReport();
+    });
+}
+
+function renderFilteredReport() {
+    const mount = document.getElementById("reportMount");
+    if (!mount || !state.baseReport) return;
+    state.report = applyBrandFilter(state.baseReport);
+    mount.innerHTML = reportView(state.report);
+    refreshHeaderLastUpdated();
+    bindReport();
+}
+
+function applyBrandFilter(report) {
+    if (!report) return report;
+    if (state.brandFilter.mode === "all") return { ...report, brandFilter: filterSummary() };
+    const filtered = {
+        ...report,
+        downloadableVersions: filterVersionGroups(report.downloadableVersions || []),
+        kioskVersions: filterVersionGroups(report.kioskVersions || []),
+        quboxVersions: filterVersionGroups(report.quboxVersions || []),
+        qukdsVersions: filterVersionGroups(report.qukdsVersions || []),
+        quorbVersions: filterVersionGroups(report.quorbVersions || []),
+        otherVersions: filterVersionGroups(report.otherVersions || []),
+        stores: (report.stores || []).filter(storeMatchesBrandFilter),
+        brandFilter: filterSummary(),
+    };
+    filtered.summary = filteredSummary(filtered);
+    filtered.outOfDateVersionSummary = outOfDateVersionSummary(filtered.downloadableVersions, filtered.summary.currentStableVersion);
+    filtered.alerts = {
+        mixedVersionStores: filtered.stores.filter(store => Number(store.uniqueVersionCount) > 1),
+        staleTerminals: (report.alerts?.staleTerminals || []).filter(storeMatchesBrandFilter),
+        farBehindStores: filtered.stores.filter(store => Number(store.outOfDateTerminalCount) > 0).sort((a, b) => Number(b.outOfDateTerminalCount) - Number(a.outOfDateTerminalCount)),
+    };
+    if (report.comparison) {
+        filtered.comparison = {
+            ...report.comparison,
+            changedTerminals: (report.comparison.changedTerminals || []).filter(storeMatchesBrandFilter),
+        };
+        filtered.comparison.changedTerminalCount = filtered.comparison.changedTerminals.length;
+    }
+    return filtered;
+}
+
+function filterVersionGroups(groups) {
+    return groups.map(group => {
+        const storeRows = (group.storeRows || []).filter(storeMatchesBrandFilter);
+        return {
+            ...group,
+            storeRows,
+            terminalCount: storeRows.reduce((sum, store) => sum + Number(store.terminalCount || 0), 0),
+            storeCount: storeRows.length,
+            terminalTypes: uniqueText(storeRows.flatMap(store => String(store.terminalTypes || "").split(/,\s*/))).join(", "),
+        };
+    }).filter(group => group.terminalCount > 0);
+}
+
+function filteredSummary(report) {
+    const posStable = stableVersionGroup(report.downloadableVersions);
+    const kioskStable = stableVersionGroup(report.kioskVersions);
+    const quboxStable = stableVersionGroup(report.quboxVersions);
+    const qukdsStable = stableVersionGroup(report.qukdsVersions);
+    const quorbStable = stableVersionGroup(report.quorbVersions);
+    const posTotal = totalDevices(report.downloadableVersions);
+    return {
+        ...report.summary,
+        uniqueQuPosAppVersions: report.downloadableVersions.length,
+        posAppTerminals: posTotal,
+        mostCurrentVersion: report.downloadableVersions[0]?.version || "N/A",
+        currentStableVersion: posStable?.version || "N/A",
+        currentStableVersionCount: posStable?.terminalCount || 0,
+        currentStableVersionUsagePercent: percent(posStable?.terminalCount || 0, posTotal),
+        outOfDateStores: report.stores.filter(store => Number(store.outOfDateTerminalCount) > 0).length,
+        outOfDatePosTerminals: report.stores.reduce((sum, store) => sum + Number(store.outOfDateTerminalCount || 0), 0),
+        kioskVersions: report.kioskVersions.length,
+        quboxVersions: report.quboxVersions.length,
+        qukdsVersions: report.qukdsVersions.length,
+        quorbVersions: report.quorbVersions.length,
+        kioskStableVersion: kioskStable?.version || "No Data",
+        kioskStableUsagePercent: stableUsage(kioskStable, report.kioskVersions),
+        quboxStableVersion: quboxStable?.version || "No Data",
+        quboxStableUsagePercent: stableUsage(quboxStable, report.quboxVersions),
+        qukdsStableVersion: qukdsStable?.version || "No Data",
+        qukdsStableUsagePercent: stableUsage(qukdsStable, report.qukdsVersions),
+        quorbStableVersion: quorbStable?.version || "No Data",
+        quorbStableUsagePercent: stableUsage(quorbStable, report.quorbVersions),
+    };
+}
+
+function stableVersionGroup(groups) {
+    return [...(groups || [])].sort((a, b) => Number(b.terminalCount || 0) - Number(a.terminalCount || 0) || compareVersions(b.version, a.version))[0] || null;
+}
+
+function stableUsage(stable, groups) {
+    const total = totalDevices(groups);
+    return total > 0 && stable ? percent(stable.terminalCount, total) : null;
+}
+
+function totalDevices(groups) {
+    return (groups || []).reduce((sum, group) => sum + Number(group.terminalCount || 0), 0);
+}
+
+function percent(part, whole) {
+    return whole > 0 ? Math.round((Number(part || 0) / whole) * 1000) / 10 : 0;
+}
+
+function outOfDateVersionSummary(groups, stableVersion) {
+    if (!stableVersion || stableVersion === "N/A") return [];
+    return (groups || [])
+        .filter(group => compareVersions(group.version, stableVersion) < 0)
+        .map(group => ({ version: group.version, terminalCount: group.terminalCount, storeCount: group.storeCount }))
+        .sort((a, b) => compareVersions(b.version, a.version));
+}
+
+function storeMatchesBrandFilter(store) {
+    const filter = state.brandFilter;
+    const brands = storeBrands(store);
+    if (filter.mode === "all") return true;
+    if (filter.mode === "brand") return brands.includes(filter.brand);
+    if (filter.mode === "cobranded") {
+        if (brands.length < 2) return false;
+        return !filter.combination || brandCombinationLabel(brands) === filter.combination;
+    }
+    if (filter.mode === "combination") {
+        const selected = filter.selectedBrands || [];
+        if (!selected.length) return true;
+        if (filter.match === "all") return selected.every(brand => brands.includes(brand));
+        if (filter.match === "exact") return selected.length === brands.length && selected.every(brand => brands.includes(brand));
+        return selected.some(brand => brands.includes(brand));
+    }
+    return true;
+}
+
+function availableBrands(report) {
+    const brands = [];
+    allReportStores(report).forEach(store => brands.push(...storeBrands(store)));
+    return uniqueText(brands).sort((a, b) => a.localeCompare(b));
+}
+
+function availableBrandCombinations(report) {
+    const combinations = allReportStores(report)
+        .map(store => storeBrands(store))
+        .filter(brands => brands.length > 1)
+        .map(brandCombinationLabel);
+    return uniqueText(combinations).sort((a, b) => a.localeCompare(b));
+}
+
+function allReportStores(report) {
+    const stores = [...(report?.stores || [])];
+    ["downloadableVersions", "kioskVersions", "quboxVersions", "qukdsVersions", "quorbVersions", "otherVersions"].forEach(key => {
+        (report?.[key] || []).forEach(group => stores.push(...(group.storeRows || [])));
+    });
+    return stores;
+}
+
+function storeBrands(store) {
+    const explicit = Array.isArray(store?.storeBrands) ? store.storeBrands : [];
+    return uniqueText([...explicit, ...brandsFromText(store?.storeName || "")]).sort((a, b) => a.localeCompare(b));
+}
+
+function brandsFromText(text) {
+    const value = String(text || "").toLowerCase();
+    const patterns = {
+        "Auntie Anne's": ["auntie anne", "[aa]", "aa-"],
+        Carvel: ["carvel", "[cv]", "cv-", " cb-", "/ cb-"],
+        Cinnabon: ["cinnabon", "[cn]", "cn-"],
+        Jamba: ["jamba", "[ja]", "ja-"],
+        "Moe's": ["moes", "moe's", "[moes]", "moes-"],
+        "Schlotzsky's": ["schlotzsky", "sch-", "[sch]"],
+        "McAlister's Deli": ["mcalister", "mcalister's", "mcalisters", "[mca]"],
+    };
+    return Object.entries(patterns)
+        .filter(([, needles]) => needles.some(needle => value.includes(needle)))
+        .map(([brand]) => brand);
+}
+
+function brandCombinationLabel(brands) {
+    return uniqueText(brands).sort((a, b) => a.localeCompare(b)).join(" + ");
+}
+
+function activeBrandFilterLabel() {
+    const filter = state.brandFilter;
+    if (filter.mode === "all") return "All Brands";
+    if (filter.mode === "brand") return filter.brand || "Brand";
+    if (filter.mode === "cobranded") return filter.combination || "Co-Branded";
+    if (filter.mode === "combination") {
+        const brands = filter.selectedBrands?.length ? filter.selectedBrands.join(" + ") : "No brands selected";
+        const mode = filter.match === "all" ? "Contains All" : filter.match === "exact" ? "Exact Combination" : "Contains Any";
+        return `${mode}: ${brands}`;
+    }
+    return "All Brands";
+}
+
+function filterSummary() {
+    return {
+        mode: state.brandFilter.mode,
+        label: activeBrandFilterLabel(),
+        match: state.brandFilter.match,
+        selectedBrands: state.brandFilter.selectedBrands || [],
+    };
+}
+
+function uniqueText(values) {
+    return [...new Set((values || []).map(value => String(value || "").trim()).filter(Boolean))];
 }
 
 function activateReportTab(tab, search = null, sectionId = "") {
@@ -1983,9 +2269,9 @@ function exportFileName(format) {
 }
 
 function csvText({ sections }) {
-    const lines = [];
+    const lines = [[`Brand Filter: ${activeBrandFilterLabel()}`].map(csvCell).join(",")];
     sections.forEach((section, index) => {
-        if (index > 0) lines.push("");
+        lines.push("");
         lines.push([`Section: ${section.section}`].map(csvCell).join(","));
         lines.push(section.headers.map(csvCell).join(","));
         section.rows.forEach(row => lines.push(row.map(csvCell).join(",")));
@@ -2004,7 +2290,7 @@ function excelHtml({ sections }) {
         const bodyRows = section.rows.map(row => `<tr>${row.map(cell => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`).join("");
         return `<h2>${escapeHtml(section.section)}</h2><table>${headerRow}${bodyRows}</table>`;
     }).join("<br>");
-    return `<!doctype html><html><head><meta charset="utf-8"></head><body>${tables}</body></html>`;
+    return `<!doctype html><html><head><meta charset="utf-8"></head><body><h1>Brand Filter: ${escapeHtml(activeBrandFilterLabel())}</h1>${tables}</body></html>`;
 }
 
 function downloadFile(fileName, content, mimeType) {

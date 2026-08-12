@@ -157,6 +157,31 @@ final class Database
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
         );
         $pdo->exec(
+            "CREATE TABLE IF NOT EXISTS brands (
+                id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                brand_name VARCHAR(160) NOT NULL,
+                brand_status VARCHAR(40) NOT NULL DEFAULT 'Active',
+                created_at DATETIME NOT NULL,
+                updated_at DATETIME NOT NULL,
+                UNIQUE KEY uq_brands_brand_name (brand_name)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+        );
+        $pdo->exec(
+            "CREATE TABLE IF NOT EXISTS store_brands (
+                store_id VARCHAR(80) NOT NULL,
+                brand_id INT UNSIGNED NOT NULL,
+                is_primary TINYINT(1) NOT NULL DEFAULT 0,
+                effective_date DATE NULL,
+                end_date DATE NULL,
+                updated_at DATETIME NOT NULL,
+                PRIMARY KEY (store_id, brand_id),
+                INDEX idx_store_brands_brand_id (brand_id),
+                CONSTRAINT fk_store_brands_brand
+                    FOREIGN KEY (brand_id) REFERENCES brands(id)
+                    ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+        );
+        $pdo->exec(
             "CREATE TABLE IF NOT EXISTS role_permissions (
                 role VARCHAR(40) NOT NULL,
                 section_key VARCHAR(80) NOT NULL,
@@ -437,12 +462,15 @@ final class Database
             );
 
             foreach ($rows as $index => $row) {
+                $storeId = self::fieldAny($row, ['Store ID', 'Store Id', 'Store Number', 'Number', 'ID']);
+                $storeName = self::fieldAny($row, ['Store Name', 'Name', 'Location Name']);
+                $brand = self::fieldAny($row, ['Brand', 'Concept', 'Store Brand']);
                 $rowStatement->execute([
                     ':import_id' => $importId,
                     ':row_number' => $index + 1,
-                    ':store_id' => self::fieldAny($row, ['Store ID', 'Store Id', 'Store Number', 'Number', 'ID']),
-                    ':store_name' => self::fieldAny($row, ['Store Name', 'Name', 'Location Name']),
-                    ':brand' => self::fieldAny($row, ['Brand', 'Concept', 'Store Brand']),
+                    ':store_id' => $storeId,
+                    ':store_name' => $storeName,
+                    ':brand' => $brand,
                     ':status' => self::fieldAny($row, ['Status', 'Store Status']),
                     ':timezone' => self::fieldAny($row, ['Timezone', 'Time Zone']),
                     ':address' => self::fieldAny($row, ['Address', 'Address 1', 'Street Address']),
@@ -453,6 +481,7 @@ final class Database
                     ':raw_json' => json_encode($row, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
                     ':created_at' => $now,
                 ]);
+                self::upsertStoreBrands($pdo, (string)($storeId ?? ''), array_merge(self::splitBrands((string)($brand ?? '')), self::brandsFromText((string)($storeName ?? ''))), $now);
             }
 
             $pdo->commit();
@@ -1011,6 +1040,16 @@ final class Database
 
     public static function latestStoreStatusMap(PDO $pdo): array
     {
+        $metadata = self::latestStoreMetadataMap($pdo);
+        $statusMap = [];
+        foreach ($metadata as $storeId => $row) {
+            $statusMap[$storeId] = trim((string)($row['status'] ?? ''));
+        }
+        return $statusMap;
+    }
+
+    public static function latestStoreMetadataMap(PDO $pdo): array
+    {
         self::initialize($pdo);
         $latest = self::latestStoreImport($pdo);
         if (!$latest) {
@@ -1018,22 +1057,41 @@ final class Database
         }
 
         $statement = $pdo->prepare(
-            "SELECT store_id, status
+            "SELECT store_id, store_name, brand, status, city, state
              FROM store_rows
              WHERE import_id = :import_id
                AND store_id IS NOT NULL
                AND store_id <> ''"
         );
         $statement->execute([':import_id' => $latest['id']]);
-        $statusMap = [];
+        $metadataMap = [];
         foreach ($statement->fetchAll() as $row) {
             $storeId = trim((string)$row['store_id']);
             if ($storeId === '') {
                 continue;
             }
-            $statusMap[$storeId] = trim((string)($row['status'] ?? ''));
+            if (!isset($metadataMap[$storeId])) {
+                $metadataMap[$storeId] = [
+                    'storeName' => trim((string)($row['store_name'] ?? '')),
+                    'brands' => [],
+                    'status' => trim((string)($row['status'] ?? '')),
+                    'city' => trim((string)($row['city'] ?? '')),
+                    'state' => trim((string)($row['state'] ?? '')),
+                ];
+            }
+            $metadataMap[$storeId]['brands'] = array_merge(
+                $metadataMap[$storeId]['brands'],
+                self::splitBrands((string)($row['brand'] ?? '')),
+                self::brandsFromText((string)($row['store_name'] ?? ''))
+            );
         }
-        return $statusMap;
+        foreach ($metadataMap as $storeId => $row) {
+            $metadataMap[$storeId]['brands'] = array_values(array_unique(array_filter(array_map(
+                static fn(string $brand): string => trim($brand),
+                $row['brands']
+            ))));
+        }
+        return $metadataMap;
     }
 
     private static function field(array $row, string $name): ?string
@@ -1048,6 +1106,94 @@ final class Database
         }
         $value = trim((string)($row[$name] ?? ''));
         return $value === '' ? null : $value;
+    }
+
+    private static function upsertStoreBrands(PDO $pdo, string $storeId, array $brands, string $now): void
+    {
+        $storeId = trim($storeId);
+        $brands = array_values(array_unique(array_filter(array_map(
+            static fn(string $brand): string => trim($brand),
+            $brands
+        ))));
+        if ($storeId === '' || count($brands) === 0) {
+            return;
+        }
+
+        $brandStatement = $pdo->prepare(
+            "INSERT INTO brands (brand_name, brand_status, created_at, updated_at)
+             VALUES (:brand_name, 'Active', :created_at, :updated_at)
+             ON DUPLICATE KEY UPDATE brand_status = 'Active', updated_at = VALUES(updated_at)"
+        );
+        $selectStatement = $pdo->prepare("SELECT id FROM brands WHERE brand_name = :brand_name LIMIT 1");
+        $storeBrandStatement = $pdo->prepare(
+            "INSERT INTO store_brands (store_id, brand_id, is_primary, effective_date, end_date, updated_at)
+             VALUES (:store_id, :brand_id, :is_primary, CURDATE(), NULL, :updated_at)
+             ON DUPLICATE KEY UPDATE end_date = NULL, updated_at = VALUES(updated_at), is_primary = VALUES(is_primary)"
+        );
+
+        $activeBrandIds = [];
+        foreach ($brands as $index => $brand) {
+            $brandStatement->execute([
+                ':brand_name' => $brand,
+                ':created_at' => $now,
+                ':updated_at' => $now,
+            ]);
+            $selectStatement->execute([':brand_name' => $brand]);
+            $brandId = (int)($selectStatement->fetchColumn() ?: 0);
+            if ($brandId <= 0) {
+                continue;
+            }
+            $activeBrandIds[] = $brandId;
+            $storeBrandStatement->execute([
+                ':store_id' => $storeId,
+                ':brand_id' => $brandId,
+                ':is_primary' => $index === 0 ? 1 : 0,
+                ':updated_at' => $now,
+            ]);
+        }
+        if (count($activeBrandIds) > 0) {
+            $placeholders = implode(', ', array_fill(0, count($activeBrandIds), '?'));
+            $endStatement = $pdo->prepare(
+                "UPDATE store_brands
+                 SET end_date = CURDATE(), updated_at = ?
+                 WHERE store_id = ?
+                   AND brand_id NOT IN ($placeholders)"
+            );
+            $endStatement->execute(array_merge([$now, $storeId], $activeBrandIds));
+        }
+    }
+
+    private static function splitBrands(string $value): array
+    {
+        $parts = preg_split('/\s*(?:\+|,|;|\/|\||&|\band\b)\s*/i', $value) ?: [];
+        return array_values(array_filter(array_map(
+            static fn(string $brand): string => trim($brand),
+            $parts
+        )));
+    }
+
+    private static function brandsFromText(string $text): array
+    {
+        $normalized = strtolower($text);
+        $matches = [];
+        $patterns = [
+            'Auntie Anne\'s' => ['auntie anne', '[aa]', 'aa-'],
+            'Carvel' => ['carvel', '[cv]', 'cv-', ' cb-', '/ cb-'],
+            'Cinnabon' => ['cinnabon', '[cn]', 'cn-'],
+            'Jamba' => ['jamba', '[ja]', 'ja-'],
+            'Moe\'s' => ['moes', 'moe\'s', '[moes]', 'moes-'],
+            'Schlotzsky\'s' => ['schlotzsky', 'sch-', '[sch]'],
+            'McAlister\'s Deli' => ['mcalister', 'mcalister\'s', 'mcalisters', '[mca]'],
+        ];
+        foreach ($patterns as $brand => $needles) {
+            foreach ($needles as $needle) {
+                if (str_contains($normalized, strtolower($needle))) {
+                    $matches[] = $brand;
+                    break;
+                }
+            }
+        }
+        return $matches;
     }
 
     private static function fieldAny(array $row, array $names): ?string

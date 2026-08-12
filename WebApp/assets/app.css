@@ -750,6 +750,43 @@ h2 {
     overflow-x: auto;
 }
 
+.brand-filter-panel {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: center;
+    border: 1px solid rgba(35, 199, 255, .28);
+    border-radius: 16px;
+    background: linear-gradient(135deg, rgba(35, 199, 255, .09), rgba(5, 12, 25, .36));
+    padding: 16px;
+    margin: 0 0 18px;
+}
+
+.brand-filter-heading {
+    display: grid;
+    gap: 5px;
+}
+
+.brand-filter-heading strong {
+    color: var(--cyan);
+    font-size: 18px;
+}
+
+.brand-filter-controls {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.brand-select {
+    min-width: 210px;
+}
+
+.multi-brand-select {
+    min-height: 124px;
+}
+
 .tab-btn {
     background: transparent;
     color: var(--muted);
@@ -1183,7 +1220,9 @@ details.version-detail summary span {
 
 @media (max-width: 640px) {
     .main { padding: 18px; }
-    .toolbar, .report-item, .release-heading, .settings-actions-heading, .inline-form { flex-direction: column; align-items: stretch; }
+    .toolbar, .report-item, .release-heading, .settings-actions-heading, .inline-form, .brand-filter-panel { flex-direction: column; align-items: stretch; }
+    .brand-filter-controls { justify-content: stretch; }
+    .brand-select { width: 100%; }
     .report-tools, .export-actions { width: 100%; }
     .export-actions .btn { flex: 1 1 140px; }
     .release-current { margin: 0; }

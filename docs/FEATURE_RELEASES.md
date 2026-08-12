@@ -1,6 +1,6 @@
 # Release Notes
 
-Current application version: `v006.04`
+Current application version: `v006.05`
 
 Version sequence: `v001.01` through `v001.09`, then `v002.00`, followed by
 `v002.00` through `v002.09`, then `v003.00` through `v003.09`, then `v004.00`
@@ -15,6 +15,7 @@ Newest releases are listed first.
 
 | Version | Release Date And Time | Type | Title | Description | Status |
 | --- | --- | --- | --- | --- | --- |
+| v006.05 | August 11, 2026 22:17 EST | Feature | Co-Brand Dashboard Filtering | Added support for store brand metadata, co-branded store relationships, dashboard brand filters, dynamic co-brand combinations, and filtered exports without double-counting stores. | Released |
 | v006.04 | August 11, 2026 22:12 EST | Feature | Filtered Report Export Buttons | Added CSV and Excel export buttons so users can download the current filtered and sorted report view, including out-of-date stores and mixed-version store lists. | Released |
 | v006.03 | August 11, 2026 22:01 EST | Improvement | Release Notes Scroll Position | Updated the footer version link so opening Release Notes always starts at the top of the page. | Released |
 | v006.02 | August 11, 2026 21:57 EST | Improvement | Release Notes Current Version Spacing | Added spacing around the Current Version badge on the Release Notes page so the header area has cleaner separation from the panel edge and release list. | Released |

@@ -101,6 +101,29 @@ CREATE TABLE IF NOT EXISTS store_rows (
         ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS brands (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    brand_name VARCHAR(160) NOT NULL,
+    brand_status VARCHAR(40) NOT NULL DEFAULT 'Active',
+    created_at DATETIME NOT NULL,
+    updated_at DATETIME NOT NULL,
+    UNIQUE KEY uq_brands_brand_name (brand_name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS store_brands (
+    store_id VARCHAR(80) NOT NULL,
+    brand_id INT UNSIGNED NOT NULL,
+    is_primary TINYINT(1) NOT NULL DEFAULT 0,
+    effective_date DATE NULL,
+    end_date DATE NULL,
+    updated_at DATETIME NOT NULL,
+    PRIMARY KEY (store_id, brand_id),
+    INDEX idx_store_brands_brand_id (brand_id),
+    CONSTRAINT fk_store_brands_brand
+        FOREIGN KEY (brand_id) REFERENCES brands(id)
+        ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS role_permissions (
     role VARCHAR(40) NOT NULL,
     section_key VARCHAR(80) NOT NULL,
