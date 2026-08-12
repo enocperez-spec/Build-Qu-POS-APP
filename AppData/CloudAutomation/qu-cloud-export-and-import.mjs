@@ -27,7 +27,7 @@ const exportTargets = {
   stores: {
     quUrl: 'https://admin.qubeyond.com/configuration/stores/',
     importUrl: 'https://quposapp.qupostech.com/api/cloud-store-import.php',
-    exportText: /export store information/i,
+    exportText: /export stores? info|export store information/i,
     formField: 'storeCsv',
     label: 'stores',
   },

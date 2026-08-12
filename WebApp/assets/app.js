@@ -392,6 +392,14 @@ const FEATURE_RELEASES = [
         type: "Bug Fix",
         status: "Released",
     },
+    {
+        version: "v005.08",
+        releasedAt: "2026-08-12 00:00:00 -04:00",
+        title: "Store Export Menu Label Fix",
+        description: "Updated the QU EI Store Information export automation to click the current Export Stores Info menu label used on the Stores page.",
+        type: "Bug Fix",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
