@@ -105,12 +105,18 @@ function usernameInput(page) {
   return page.locator('input[name="username"], input[type="text"]:visible').first();
 }
 
+function loginForm(page) {
+  return page.locator('input[name="password"], input[type="password"], button, input[type="submit"], [role="button"]').filter({ hasText: /^LOGIN$/i }).first();
+}
+
 async function isActionsReady(page) {
   return actionsButton(page).isVisible().catch(() => false);
 }
 
 async function isLoginReady(page) {
-  return usernameInput(page).isVisible().catch(() => false);
+  const passwordVisible = await page.locator('input[name="password"], input[type="password"]').first().isVisible().catch(() => false);
+  const loginButtonVisible = await page.locator('button, input[type="submit"], [role="button"]').filter({ hasText: /^LOGIN$/i }).first().isVisible().catch(() => false);
+  return passwordVisible || loginButtonVisible;
 }
 
 async function dismissBlockingModals(page) {
@@ -161,7 +167,7 @@ async function dismissBlockingModals(page) {
 
 async function waitForLoginOrActions(page) {
   await Promise.race([
-    usernameInput(page).waitFor({ state: 'visible', timeout: settings.timeoutMs }).catch(() => {}),
+    loginForm(page).waitFor({ state: 'visible', timeout: settings.timeoutMs }).catch(() => {}),
     actionsButton(page).waitFor({ state: 'visible', timeout: settings.timeoutMs }).catch(() => {}),
   ]);
 }

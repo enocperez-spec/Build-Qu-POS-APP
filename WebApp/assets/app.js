@@ -384,6 +384,14 @@ const FEATURE_RELEASES = [
         type: "Bug Fix",
         status: "Released",
     },
+    {
+        version: "v005.07",
+        releasedAt: "2026-08-11 23:50:00 -04:00",
+        title: "Store Export Login Detection Fix",
+        description: "Fixed QU EI Store Information export automation so post-login page inputs are not mistaken for the login form after the What's New modal closes.",
+        type: "Bug Fix",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
