@@ -467,6 +467,14 @@ const FEATURE_RELEASES = [
         type: "Improvement",
         status: "Released",
     },
+    {
+        version: "v006.07",
+        releasedAt: "August 11, 2026 22:45 EST",
+        title: "Manual Store Information Upload",
+        description: "Added a Store Information CSV upload tab so Tech and Admin users can manually import QU EI store data into SQL when automation is unavailable.",
+        type: "Feature",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
@@ -655,24 +663,55 @@ function userInitials(name) {
 
 function uploadPanel() {
     return `
-        <section class="panel upload-panel">
-            <div class="drop-card">
-                <label for="currentCsv">CSV Upload <span class="subtle">(required)</span></label>
-                <input class="file-input" id="currentCsv" type="file" accept=".csv,text/csv">
-                <div id="currentFileName" class="file-name">No file selected</div>
+        <section class="panel upload-workspace">
+            <div class="upload-tabs" role="tablist" aria-label="CSV upload type">
+                <button class="upload-tab active" type="button" data-upload-tab="terminal">Terminal CSV</button>
+                <button class="upload-tab" type="button" data-upload-tab="store">Store Information CSV</button>
             </div>
-            <div class="actions">
-                <button class="btn primary" id="generateBtn">Upload CSV And Build Report</button>
+            <div class="upload-tab-panel active" id="terminalUploadPanel">
+                <div class="upload-panel">
+                    <div class="drop-card">
+                        <label for="currentCsv">Terminal CSV Upload <span class="subtle">(required)</span></label>
+                        <p class="subtle">Uploads the QU EI terminal export, saves it to SQL history, and builds the latest searchable report.</p>
+                        <input class="file-input" id="currentCsv" type="file" accept=".csv,text/csv">
+                        <div id="currentFileName" class="file-name">No file selected</div>
+                    </div>
+                    <div class="actions">
+                        <button class="btn primary" id="generateBtn">Upload Terminal CSV And Build Report</button>
+                    </div>
+                </div>
+                <section class="progress-panel">
+                    <div class="steps">
+                        <div class="step" data-step="0"><strong>Loading CSV</strong><br><span>Waiting</span></div>
+                        <div class="step" data-step="1"><strong>Building report</strong><br><span>Waiting</span></div>
+                        <div class="step" data-step="2"><strong>Writing HTML</strong><br><span>Waiting</span></div>
+                        <div class="step" data-step="3"><strong>Done</strong><br><span>Waiting</span></div>
+                    </div>
+                    <div id="statusMessage" class="status-message"></div>
+                </section>
             </div>
-        </section>
-        <section class="panel progress-panel">
-            <div class="steps">
-                <div class="step" data-step="0"><strong>Loading CSV</strong><br><span>Waiting</span></div>
-                <div class="step" data-step="1"><strong>Building report</strong><br><span>Waiting</span></div>
-                <div class="step" data-step="2"><strong>Writing HTML</strong><br><span>Waiting</span></div>
-                <div class="step" data-step="3"><strong>Done</strong><br><span>Waiting</span></div>
+            <div class="upload-tab-panel" id="storeUploadPanel">
+                <div class="upload-panel">
+                    <div class="drop-card">
+                        <label for="storeCsv">Store Information CSV Upload <span class="subtle">(required)</span></label>
+                        <p class="subtle">Uploads the QU EI Store Information export into SQL as a manual backup for the automated store sync.</p>
+                        <input class="file-input" id="storeCsv" type="file" accept=".csv,text/csv">
+                        <div id="storeFileName" class="file-name">No file selected</div>
+                    </div>
+                    <div class="actions">
+                        <button class="btn primary" id="storeImportBtn">Upload Store Information CSV</button>
+                    </div>
+                </div>
+                <section class="progress-panel">
+                    <div class="steps store-steps">
+                        <div class="step" data-store-step="0"><strong>Loading CSV</strong><br><span>Waiting</span></div>
+                        <div class="step" data-store-step="1"><strong>Saving to SQL</strong><br><span>Waiting</span></div>
+                        <div class="step" data-store-step="2"><strong>Updating store data</strong><br><span>Waiting</span></div>
+                        <div class="step" data-store-step="3"><strong>Done</strong><br><span>Waiting</span></div>
+                    </div>
+                    <div id="storeStatusMessage" class="status-message"></div>
+                </section>
             </div>
-            <div id="statusMessage" class="status-message"></div>
         </section>`;
 }
 
@@ -820,7 +859,7 @@ function renderUploadPage() {
         renderHome();
         return;
     }
-    app.innerHTML = shell(header() + uploadPanel() + `<section class="panel" style="padding:20px;margin-top:18px;"><h2>CSV Upload History</h2><div id="uploadHistory" class="report-list"><div class="empty">Loading upload history...</div></div></section>`, "upload");
+    app.innerHTML = shell(header() + uploadPanel() + `<section class="panel" style="padding:20px;margin-top:18px;"><h2>Terminal CSV Upload History</h2><div id="uploadHistory" class="report-list"><div class="empty">Loading upload history...</div></div></section>`, "upload");
     bindShell();
     bindUpload();
     loadUploads();
@@ -1044,8 +1083,20 @@ function emptyState() {
 
 function bindUpload() {
     const current = document.getElementById("currentCsv");
+    const store = document.getElementById("storeCsv");
     current?.addEventListener("change", () => document.getElementById("currentFileName").textContent = current.files[0]?.name || "No file selected");
+    store?.addEventListener("change", () => document.getElementById("storeFileName").textContent = store.files[0]?.name || "No file selected");
     document.getElementById("generateBtn")?.addEventListener("click", generateReport);
+    document.getElementById("storeImportBtn")?.addEventListener("click", importStoreCsv);
+    document.querySelectorAll(".upload-tab").forEach(button => {
+        button.addEventListener("click", () => activateUploadTab(button.dataset.uploadTab || "terminal"));
+    });
+}
+
+function activateUploadTab(tab) {
+    document.querySelectorAll(".upload-tab").forEach(button => button.classList.toggle("active", button.dataset.uploadTab === tab));
+    document.getElementById("terminalUploadPanel")?.classList.toggle("active", tab === "terminal");
+    document.getElementById("storeUploadPanel")?.classList.toggle("active", tab === "store");
 }
 
 function setStep(index, label) {
@@ -1055,6 +1106,15 @@ function setStep(index, label) {
         step.querySelector("span").textContent = i < index ? "Completed" : (i === index ? "In progress" : "Waiting");
     });
     document.getElementById("statusMessage").textContent = label;
+}
+
+function setStoreStep(index, label) {
+    document.querySelectorAll("[data-store-step]").forEach((step, i) => {
+        step.classList.toggle("done", i < index);
+        step.classList.toggle("active", i === index);
+        step.querySelector("span").textContent = i < index ? "Completed" : (i === index ? "In progress" : "Waiting");
+    });
+    document.getElementById("storeStatusMessage").textContent = label;
 }
 
 async function generateReport() {
@@ -1085,6 +1145,36 @@ async function generateReport() {
         await loadUploads();
     } catch (error) {
         document.getElementById("statusMessage").textContent = error.message;
+    } finally {
+        button.disabled = false;
+    }
+}
+
+async function importStoreCsv() {
+    const store = document.getElementById("storeCsv");
+    if (!store.files[0]) {
+        document.getElementById("storeStatusMessage").textContent = "Choose a Store Information CSV file first.";
+        return;
+    }
+
+    const form = new FormData();
+    form.append("storeCsv", store.files[0]);
+
+    const button = document.getElementById("storeImportBtn");
+    button.disabled = true;
+    try {
+        setStoreStep(0, "Loading CSV");
+        await pause(180);
+        setStoreStep(1, "Saving to SQL");
+        const response = await fetch("api/store-import.php", { method: "POST", body: form });
+        const payload = await response.json();
+        if (!payload.ok) throw new Error(payload.error || "Store Information import failed.");
+        setStoreStep(2, "Updating store data");
+        state.dashboardHealth = payload.health || state.dashboardHealth;
+        await pause(180);
+        setStoreStep(4, `Done. Imported ${payload.rowCount} store rows.`);
+    } catch (error) {
+        document.getElementById("storeStatusMessage").textContent = error.message;
     } finally {
         button.disabled = false;
     }
