@@ -29,8 +29,8 @@ alerts, and historical comparisons.
   Admin and importing the CSV into the web app.
 - Includes QU EI Store Information synchronization with SQL storage for the
   latest exported store data.
-- Shows dashboard data-health cards for latest terminal sync, latest store sync,
-  and QU EI automation status.
+- Shows a compact dashboard sync status bar for latest terminal sync, latest
+  store sync, and QU EI automation status.
 - Lets users click dashboard metric cards to jump directly into matching report
   details and filtered out-of-date stores.
 - Shows a polished top-right user profile card with role, dashboard last
@@ -38,7 +38,7 @@ alerts, and historical comparisons.
 
 ## Release Notes
 
-The current application version is `v004.06`.
+The current application version is `v004.07`.
 
 Release history is tracked in [docs/FEATURE_RELEASES.md](docs/FEATURE_RELEASES.md).
 Every completed request receives the next version number and remains available

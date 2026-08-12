@@ -304,6 +304,14 @@ const FEATURE_RELEASES = [
         type: "Improvement",
         status: "Released",
     },
+    {
+        version: "v004.07",
+        releasedAt: "2026-08-11 21:50:00 -04:00",
+        title: "Compact Dashboard Sync Status Bar",
+        description: "Replaced the large dashboard sync and job health cards with a slimmer single-line status bar to reduce vertical space.",
+        type: "Improvement",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
@@ -507,20 +515,30 @@ function dashboardHealthPanel(health) {
     const storeJob = jobs.find(job => job.jobKey === "qu_ei_stores_csv");
     return `
         <section class="dashboard-health">
-            ${healthCard("Latest Terminal Sync", terminal ? dateTimeLabel(terminal.uploadedAt) : "Not synced", terminal ? `${terminal.rowCount} rows from ${terminal.filename}` : "Upload or run the terminal job", "sync")}
-            ${healthCard("Latest Store Sync", store ? dateTimeLabel(store.uploadedAt) : "Not synced", store ? `${store.rowCount} stores from ${store.filename}` : "Run Store Information export", "store")}
-            ${healthCard("Terminal Job", terminalJob?.status || "Not Run Yet", terminalJob ? `Next ${dateTimeLabel(terminalJob.nextRunAt)} • ${terminalJob.scheduledTimes.join(", ")}` : "No schedule found", "automation")}
-            ${healthCard("Store Job", storeJob?.status || "Not Run Yet", storeJob ? `Next ${dateTimeLabel(storeJob.nextRunAt)} • ${storeJob.scheduledTimes.join(", ")}` : "No schedule found", "automation")}
+            ${healthItem("Terminal Sync", terminal ? dateTimeLabel(terminal.uploadedAt) : "Not synced", terminal ? `${terminal.rowCount} rows` : "Upload or run job", terminal ? "sync" : "warning")}
+            ${healthItem("Store Sync", store ? dateTimeLabel(store.uploadedAt) : "Not synced", store ? `${store.rowCount} stores` : "Run Store export", store ? "store" : "warning")}
+            ${healthItem("Terminal Job", terminalJob?.status || "Not Run Yet", terminalJob ? `Next ${dateTimeLabel(terminalJob.nextRunAt)}` : "No schedule found", statusTone(terminalJob?.status))}
+            ${healthItem("Store Job", storeJob?.status || "Not Run Yet", storeJob ? `Next ${dateTimeLabel(storeJob.nextRunAt)}` : "No schedule found", statusTone(storeJob?.status))}
         </section>`;
 }
 
-function healthCard(label, value, meta, type) {
+function healthItem(label, value, meta, type) {
     return `
-        <article class="health-card health-${escapeHtml(type)}">
-            <span class="health-label">${escapeHtml(label)}</span>
-            <strong>${escapeHtml(value)}</strong>
-            <span class="health-meta">${escapeHtml(meta || "")}</span>
+        <article class="health-item health-${escapeHtml(type)}">
+            <span class="health-dot" aria-hidden="true"></span>
+            <span class="health-copy">
+                <span class="health-label">${escapeHtml(label)}</span>
+                <strong>${escapeHtml(value)}</strong>
+                <span class="health-meta">${escapeHtml(meta || "")}</span>
+            </span>
         </article>`;
+}
+
+function statusTone(status) {
+    const value = String(status || "").toLowerCase();
+    if (value.includes("success")) return "automation";
+    if (value.includes("fail") || value.includes("error")) return "warning";
+    return "neutral";
 }
 
 function dateTimeLabel(value) {
@@ -987,7 +1005,7 @@ function renderReleaseNotes(returnPage = state.currentPage || "dashboard") {
             </div>
             <button class="btn back-btn" id="backToApplicationBtn" type="button">Back to Application</button>
             <div class="release-rules">
-                Version sequence: v001.01 through v001.09, then v002.00 through v002.09, then v003.00 through v003.09, then v004.00, v004.01, v004.02, v004.03, v004.04, v004.05, v004.06, and so on.
+                Version sequence: v001.01 through v001.09, then v002.00 through v002.09, then v003.00 through v003.09, then v004.00, v004.01, v004.02, v004.03, v004.04, v004.05, v004.06, v004.07, and so on.
             </div>
             <div class="release-list">
                 ${FEATURE_RELEASES.slice().reverse().map(release => `

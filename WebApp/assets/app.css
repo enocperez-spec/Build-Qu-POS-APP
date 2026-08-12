@@ -455,20 +455,50 @@ h2 {
 }
 
 .dashboard-health {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-    gap: 14px;
-    margin: 0 0 18px;
-}
-
-.health-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px 18px;
+    flex-wrap: wrap;
     border: 1px solid rgba(35, 199, 255, .24);
     border-radius: 16px;
-    padding: 16px;
+    padding: 12px 14px;
     background:
         linear-gradient(135deg, rgba(35, 199, 255, .08), transparent 44%),
         rgba(16, 29, 50, .82);
-    min-height: 116px;
+    margin: 0 0 18px;
+}
+
+.health-item {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-width: min(100%, 210px);
+    flex: 1 1 210px;
+}
+
+.health-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--cyan);
+    box-shadow: 0 0 18px rgba(35, 199, 255, .5);
+    flex: 0 0 auto;
+}
+
+.health-warning .health-dot {
+    background: var(--yellow);
+    box-shadow: 0 0 18px rgba(248, 194, 13, .45);
+}
+
+.health-store .health-dot,
+.health-automation .health-dot {
+    background: var(--green);
+    box-shadow: 0 0 18px rgba(71, 214, 111, .45);
+}
+
+.health-copy {
+    min-width: 0;
 }
 
 .health-label,
@@ -483,23 +513,28 @@ h2 {
     font-weight: 900;
     text-transform: uppercase;
     letter-spacing: .08em;
+    font-size: 10px;
 }
 
-.health-card strong {
+.health-item strong {
     display: block;
-    font-size: clamp(18px, 1.6vw, 24px);
+    font-size: 14px;
     line-height: 1.1;
-    margin: 10px 0 8px;
+    margin: 3px 0;
     overflow-wrap: anywhere;
 }
 
-.health-sync strong,
-.health-automation strong {
+.health-sync strong {
     color: var(--cyan);
 }
 
-.health-store strong {
+.health-store strong,
+.health-automation strong {
     color: var(--green);
+}
+
+.health-warning strong {
+    color: var(--yellow);
 }
 
 .selector-actions {

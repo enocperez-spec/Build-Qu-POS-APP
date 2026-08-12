@@ -1,10 +1,10 @@
 # Release Notes
 
-Current application version: `v004.06`
+Current application version: `v004.07`
 
 Version sequence: `v001.01` through `v001.09`, then `v002.00`, followed by
 `v002.00` through `v002.09`, then `v003.00` through `v003.09`, then `v004.00`,
-`v004.01`, `v004.02`, `v004.03`, `v004.04`, `v004.05`, `v004.06`, and so on.
+`v004.01`, `v004.02`, `v004.03`, `v004.04`, `v004.05`, `v004.06`, `v004.07`, and so on.
 
 Going forward, every approved and completed feature, improvement, bug fix, or
 security change should add a new entry here and update the current application
@@ -14,6 +14,7 @@ Newest releases are listed first.
 
 | Version | Release Date And Time | Type | Title | Description | Status |
 | --- | --- | --- | --- | --- | --- |
+| v004.07 | 2026-08-11 21:50:00 -04:00 | Improvement | Compact Dashboard Sync Status Bar | Replaced the large dashboard sync and job health cards with a slimmer single-line status bar to reduce vertical space. | Released |
 | v004.06 | 2026-08-11 21:35:00 -04:00 | Improvement | Remove Other Versions Dashboard Category | Removed the Other Versions dashboard card and Other Terminal Versions report section now that QuKDS and QuORB are split into their own categories. | Released |
 | v004.05 | 2026-08-11 21:25:00 -04:00 | Improvement | QuKDS And QuORB Version Split | Split Other Terminal Versions into dedicated QuKDS and QuORB dashboard cards and report sections while keeping unmatched terminal versions in Other. | Released |
 | v004.04 | 2026-08-11 21:05:00 -04:00 | Improvement | Dashboard Trend Label Cleanup | Removed the visual trend chips from the Current Stable Version and Out-Of-Date Stores dashboard cards for a cleaner card layout. | Released |
