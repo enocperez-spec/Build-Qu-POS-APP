@@ -118,13 +118,45 @@ async function dismissBlockingModals(page) {
   if (!(await modal.isVisible().catch(() => false))) return false;
 
   console.log('Blocking release notes modal detected.');
-  await clickFirst(page, [
-    { name: 'modal Close button', locator: p => modal.locator('button, [role="button"]').filter({ hasText: /^close$/i }) },
-    { name: 'modal X button', locator: p => modal.locator('button, [role="button"]').filter({ hasText: /^×$|^x$/i }) },
-    { name: 'page Close button', locator: p => p.locator('button, [role="button"]').filter({ hasText: /^close$/i }) },
-  ]);
+  const closeTargets = [
+    page.getByRole('button', { name: /^close$/i }),
+    page.locator('button').filter({ hasText: /^close$/i }),
+    page.locator('.modal button, [role="dialog"] button, .v-dialog button, .e-dialog button').filter({ hasText: /close/i }),
+    page.locator('button[aria-label*="close" i], [role="button"][aria-label*="close" i], .close, .delete').first(),
+  ];
+
+  for (const locator of closeTargets) {
+    try {
+      await locator.first().click({ timeout: 2500 });
+      await page.waitForTimeout(1000);
+      if (!(await modal.isVisible().catch(() => false))) {
+        console.log('Dismissed release notes modal.');
+        return true;
+      }
+    } catch {
+      // Try the next close strategy.
+    }
+  }
+
+  await page.keyboard.press('Escape').catch(() => {});
   await page.waitForTimeout(1000);
-  return true;
+  if (!(await modal.isVisible().catch(() => false))) {
+    console.log('Dismissed release notes modal with Escape.');
+    return true;
+  }
+
+  const box = await modal.boundingBox().catch(() => null);
+  if (box) {
+    await page.mouse.click(box.x + box.width - 18, box.y + 18).catch(() => {});
+    await page.waitForTimeout(1000);
+    if (!(await modal.isVisible().catch(() => false))) {
+      console.log('Dismissed release notes modal with X fallback.');
+      return true;
+    }
+  }
+
+  console.log('Release notes modal remained visible after dismissal attempts.');
+  return false;
 }
 
 async function waitForLoginOrActions(page) {

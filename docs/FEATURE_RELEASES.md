@@ -1,6 +1,6 @@
 # Release Notes
 
-Current application version: `v005.05`
+Current application version: `v005.06`
 
 Version sequence: `v001.01` through `v001.09`, then `v002.00`, followed by
 `v002.00` through `v002.09`, then `v003.00` through `v003.09`, then `v004.00`
@@ -14,6 +14,7 @@ Newest releases are listed first.
 
 | Version | Release Date And Time | Type | Title | Description | Status |
 | --- | --- | --- | --- | --- | --- |
+| v005.06 | 2026-08-11 23:40:00 -04:00 | Bug Fix | Store Export Modal Close Reliability | Improved the QU EI Store Information export automation with multiple short-timeout close strategies for the What's New modal, including Escape and X-button fallbacks. | Released |
 | v005.05 | 2026-08-11 23:30:00 -04:00 | Bug Fix | Store Export Modal Handling | Updated the cloud Store Information export automation to dismiss the QU EI What's New modal after login so scheduled store syncs can continue to the export action. | Released |
 | v005.04 | 2026-08-11 23:15:00 -04:00 | Improvement | Store Status Badge Color Polish | Updated store status badge colors so Live displays in green and Not Operational displays in gray for clearer visual separation. | Released |
 | v005.03 | 2026-08-11 23:05:00 -04:00 | Improvement | Store Operational Status Badges | Added store status indicators to version drill-down tables so each store can show Live, Not Operational, or No Store Data from the latest QU EI Store Information import. | Released |

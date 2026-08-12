@@ -376,6 +376,14 @@ const FEATURE_RELEASES = [
         type: "Bug Fix",
         status: "Released",
     },
+    {
+        version: "v005.06",
+        releasedAt: "2026-08-11 23:40:00 -04:00",
+        title: "Store Export Modal Close Reliability",
+        description: "Improved the QU EI Store Information export automation with multiple short-timeout close strategies for the What's New modal, including Escape and X-button fallbacks.",
+        type: "Bug Fix",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
