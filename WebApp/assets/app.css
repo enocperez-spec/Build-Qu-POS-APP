@@ -565,7 +565,7 @@ h2 {
 
 .summary-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(225px, 1fr));
     gap: 16px;
     margin: 18px 0;
 }
@@ -580,27 +580,29 @@ h2 {
 }
 
 .card .label {
+    display: block;
     color: #d9ecff;
     font-size: 13px;
     line-height: 1.15;
     font-weight: 900;
+    text-align: center;
 }
 
 .card .value {
     display: block;
-    font-size: clamp(22px, 1.8vw, 30px);
+    font-size: clamp(22px, 1.65vw, 30px);
     line-height: 1;
     font-weight: 950;
-    margin-top: 8px;
-    overflow-wrap: anywhere;
+    overflow-wrap: normal;
+    word-break: keep-all;
+    white-space: nowrap;
     max-width: 100%;
 }
 
 .metric-card {
-    display: grid;
-    grid-template-columns: clamp(30px, 3vw, 42px) minmax(0, 1fr);
-    gap: clamp(10px, 1.1vw, 14px);
+    display: flex;
     align-items: center;
+    justify-content: center;
     min-height: 94px;
 }
 
@@ -622,10 +624,11 @@ h2 {
 }
 
 .metric-icon {
-    width: clamp(30px, 3vw, 40px);
-    height: clamp(30px, 3vw, 40px);
+    width: clamp(28px, 2.4vw, 36px);
+    height: clamp(28px, 2.4vw, 36px);
     display: grid;
     place-items: center;
+    flex: 0 0 auto;
 }
 
 .metric-icon svg {
@@ -639,14 +642,28 @@ h2 {
 }
 
 .metric-copy {
+    display: grid;
+    justify-items: center;
     min-width: 0;
+    max-width: 100%;
+    width: 100%;
+}
+
+.metric-value-row {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(8px, .8vw, 12px);
+    max-width: 100%;
+    margin-top: 10px;
 }
 
 .metric-stable .value {
-    font-size: clamp(18px, 1.6vw, 28px);
+    font-size: clamp(18px, 1.15vw, 23px);
     letter-spacing: -.045em;
     line-height: 1.05;
     word-break: normal;
+    white-space: nowrap;
 }
 
 .metric-meta {
@@ -654,6 +671,7 @@ h2 {
     color: #c6d5e6;
     font-size: 12px;
     margin-top: 7px;
+    text-align: center;
 }
 
 .metric-terminals,

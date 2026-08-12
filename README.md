@@ -33,12 +33,14 @@ alerts, and historical comparisons.
   store sync, and QU EI automation status.
 - Lets users click dashboard metric cards to jump directly into matching report
   details and filtered out-of-date stores.
+- Keeps dashboard metric card labels, icons, values, and metadata grouped inside
+  each card for cleaner alignment.
 - Shows a polished top-right user profile card with role, dashboard last
   updated time, and logout action.
 
 ## Release Notes
 
-The current application version is `v004.07`.
+The current application version is `v004.08`.
 
 Release history is tracked in [docs/FEATURE_RELEASES.md](docs/FEATURE_RELEASES.md).
 Every completed request receives the next version number and remains available

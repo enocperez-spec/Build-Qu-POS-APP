@@ -312,6 +312,14 @@ const FEATURE_RELEASES = [
         type: "Improvement",
         status: "Released",
     },
+    {
+        version: "v004.08",
+        releasedAt: "2026-08-11 22:05:00 -04:00",
+        title: "Dashboard Metric Card Alignment",
+        description: "Improved dashboard metric card alignment so labels, icons, values, and metadata stay grouped inside each card, with long version numbers kept together.",
+        type: "Improvement",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
@@ -1005,7 +1013,7 @@ function renderReleaseNotes(returnPage = state.currentPage || "dashboard") {
             </div>
             <button class="btn back-btn" id="backToApplicationBtn" type="button">Back to Application</button>
             <div class="release-rules">
-                Version sequence: v001.01 through v001.09, then v002.00 through v002.09, then v003.00 through v003.09, then v004.00, v004.01, v004.02, v004.03, v004.04, v004.05, v004.06, v004.07, and so on.
+                Version sequence: v001.01 through v001.09, then v002.00 through v002.09, then v003.00 through v003.09, then v004.00, v004.01, v004.02, v004.03, v004.04, v004.05, v004.06, v004.07, v004.08, and so on.
             </div>
             <div class="release-list">
                 ${FEATURE_RELEASES.slice().reverse().map(release => `
@@ -1519,10 +1527,12 @@ function card(label, value, meta = "") {
 function metricCard(label, value, meta, type, trend = "", shortcut = "") {
     return `
         <button class="card metric-card metric-${escapeHtml(type)} dashboard-shortcut" type="button" data-shortcut="${escapeHtml(shortcut)}" aria-label="Open ${escapeHtml(label)} details">
-            <div class="metric-icon" aria-hidden="true">${metricIcon(type)}</div>
             <div class="metric-copy">
                 <span class="label">${escapeHtml(label)}</span>
-                <span class="value">${escapeHtml(value)}</span>
+                <span class="metric-value-row">
+                    <span class="metric-icon" aria-hidden="true">${metricIcon(type)}</span>
+                    <span class="value">${escapeHtml(value)}</span>
+                </span>
                 ${meta ? `<span class="metric-meta">${escapeHtml(meta)}</span>` : ""}
                 ${trend}
             </div>
