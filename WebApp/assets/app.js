@@ -492,6 +492,14 @@ const FEATURE_RELEASES = [
         type: "Bug Fix",
         status: "Released",
     },
+    {
+        version: "v007.00",
+        releasedAt: "August 11, 2026 23:20 EST",
+        title: "QuBox Down Report Tab",
+        description: "Added a QuBox Down report tab that identifies stores with no QuBox in the current terminal export or a QuBox last seen online more than two days ago.",
+        type: "Feature",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
@@ -1864,15 +1872,16 @@ async function deleteUser(id) {
 
 function reportView(report, options = {}) {
     const includeBrandFilter = options.includeBrandFilter ?? true;
-    const comparisonTab = report.comparison ? `<button class="tab-btn" data-tab="comparison">Comparison</button>` : "";
+    const comparisonTab = report.comparison ? `<button class="tab-btn${state.activeTab === "comparison" ? " active" : ""}" data-tab="comparison">Comparison</button>` : "";
     return `
         <section class="report">
             ${includeBrandFilter ? brandFilterBar() : ""}
             ${summaryCards(report)}
             <div class="tabs">
-                <button class="tab-btn active" data-tab="current">Current Versions</button>
-                <button class="tab-btn" data-tab="stores">Stores Version Report</button>
-                <button class="tab-btn" data-tab="alerts">Alerts</button>
+                <button class="tab-btn${state.activeTab === "current" ? " active" : ""}" data-tab="current">Current Versions</button>
+                <button class="tab-btn${state.activeTab === "stores" ? " active" : ""}" data-tab="stores">Stores Version Report</button>
+                <button class="tab-btn${state.activeTab === "alerts" ? " active" : ""}" data-tab="alerts">Alerts</button>
+                <button class="tab-btn${state.activeTab === "qubox-down" ? " active" : ""}" data-tab="qubox-down">QuBox Down</button>
                 ${comparisonTab}
             </div>
             <div class="toolbar">
@@ -1950,6 +1959,7 @@ function metricIcon(type) {
 function tabContent(report, tab) {
     if (tab === "stores") return storesTab(report);
     if (tab === "alerts") return alertsTab(report);
+    if (tab === "qubox-down") return quboxDownTab(report);
     if (tab === "comparison") return comparisonTab(report);
     return currentTab(report);
 }
@@ -2038,6 +2048,24 @@ function alertsTab(report) {
         ]))}
         <h2>Far Behind Stores</h2>
         ${storesTab({ ...report, stores: alerts.farBehindStores || [] })}`;
+}
+
+function quboxDownTab(report) {
+    const rows = report.alerts?.quboxDownStores || [];
+    return `
+        <h2>QuBox Down</h2>
+        <p class="subtle">Stores appear here when no QuBox is present in the current terminal export, or when the QuBox last seen online is older than 2 days.</p>
+        ${simpleTable(["Store ID", "Store Name", "Brands", "Status", "Issue", "QuBox Version", "Computer Name", "Last Seen", "Age Days"], rows.map(item => [
+            item.storeId,
+            item.storeName,
+            storeBrands(item).join(", "),
+            storeStatusBadge(item.storeStatus),
+            item.issue,
+            item.quboxVersion ? badge(item.quboxVersion, report) : "",
+            item.computerName,
+            item.lastSeen,
+            item.ageDays
+        ]))}`;
 }
 
 function comparisonTab(report) {
@@ -2174,6 +2202,7 @@ function applyBrandFilter(report) {
     filtered.alerts = {
         mixedVersionStores: filtered.stores.filter(store => Number(store.uniqueVersionCount) > 1),
         staleTerminals: (report.alerts?.staleTerminals || []).filter(storeMatchesBrandFilter),
+        quboxDownStores: (report.alerts?.quboxDownStores || []).filter(storeMatchesBrandFilter),
         farBehindStores: filtered.stores.filter(store => Number(store.outOfDateTerminalCount) > 0).sort((a, b) => Number(b.outOfDateTerminalCount) - Number(a.outOfDateTerminalCount)),
     };
     if (report.comparison) {

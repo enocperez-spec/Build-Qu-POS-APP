@@ -6,6 +6,7 @@ final class ReportService
     private const POS_BASE_URL = 'https://qu-releases.qubeyond.com/pos/builds';
     private const KIOSK_BASE_URL = 'https://qu-releases.qubeyond.com/kiosk/builds';
     private const STALE_DAYS = 14;
+    private const QUBOX_DOWN_DAYS = 2;
 
     public static function generate(array $currentFile, ?array $previousFile, string $appRoot, ?PDO $pdo = null): array
     {
@@ -244,6 +245,7 @@ final class ReportService
         $storeReport = self::storeVersionReport($posRows, $currentStableVersion, $storeMetadataMap);
         $mixedStores = array_values(array_filter($storeReport, static fn(array $store): bool => $store['uniqueVersionCount'] > 1));
         $staleTerminals = self::staleTerminals($posRows);
+        $quboxDownStores = self::quboxDownStores($storeReport, $quboxRows);
         $farBehindStores = array_values(array_filter($storeReport, static fn(array $store): bool => $store['outOfDateTerminalCount'] > 0));
         usort($farBehindStores, static fn(array $a, array $b): int => $b['outOfDateTerminalCount'] <=> $a['outOfDateTerminalCount']);
 
@@ -294,6 +296,7 @@ final class ReportService
             'alerts' => [
                 'mixedVersionStores' => $mixedStores,
                 'staleTerminals' => $staleTerminals,
+                'quboxDownStores' => $quboxDownStores,
                 'farBehindStores' => $farBehindStores,
             ],
             'comparison' => $previousRows ? self::comparison($previousRows, $rowsWithVersions) : null,
@@ -610,6 +613,68 @@ final class ReportService
         }
         usort($stale, static fn(array $a, array $b): int => $b['ageDays'] <=> $a['ageDays']);
         return $stale;
+    }
+
+    private static function quboxDownStores(array $storeReport, array $quboxRows): array
+    {
+        $quboxByStore = self::groupBy($quboxRows, 'Store ID');
+        $cutoff = strtotime('-' . self::QUBOX_DOWN_DAYS . ' days');
+        $downStores = [];
+
+        foreach ($storeReport as $store) {
+            $storeId = trim((string)($store['storeId'] ?? ''));
+            $storeQuboxRows = $quboxByStore[$storeId] ?? [];
+            if (count($storeQuboxRows) === 0) {
+                $downStores[] = [
+                    'storeId' => $storeId,
+                    'storeName' => (string)($store['storeName'] ?? ''),
+                    'storeBrands' => $store['storeBrands'] ?? [],
+                    'storeStatus' => (string)($store['storeStatus'] ?? ''),
+                    'issue' => 'Missing QuBox',
+                    'quboxVersion' => '',
+                    'computerName' => '',
+                    'lastSeen' => 'Not in current terminal export',
+                    'ageDays' => '',
+                ];
+                continue;
+            }
+
+            $latest = self::latestRowByLastSeen($storeQuboxRows);
+            $lastSeenRaw = (string)($latest['Last Seen Online'] ?? '');
+            $lastSeenTime = self::parseCsvDate($lastSeenRaw);
+            if ($lastSeenTime === null || $lastSeenTime < $cutoff) {
+                $downStores[] = [
+                    'storeId' => $storeId,
+                    'storeName' => (string)($store['storeName'] ?? ''),
+                    'storeBrands' => $store['storeBrands'] ?? [],
+                    'storeStatus' => (string)($store['storeStatus'] ?? ''),
+                    'issue' => $lastSeenTime === null ? 'QuBox Last Seen Unknown' : 'QuBox Stale',
+                    'quboxVersion' => (string)($latest['Current Version'] ?? ''),
+                    'computerName' => (string)($latest['Computer Name'] ?? ''),
+                    'lastSeen' => $lastSeenRaw,
+                    'ageDays' => $lastSeenTime === null ? '' : floor((time() - $lastSeenTime) / 86400),
+                ];
+            }
+        }
+
+        usort($downStores, static function (array $a, array $b): int {
+            $issueSort = strcmp((string)$a['issue'], (string)$b['issue']);
+            if ($issueSort !== 0) {
+                return $issueSort;
+            }
+            return strcasecmp((string)$a['storeName'], (string)$b['storeName']) ?: strcmp((string)$a['storeId'], (string)$b['storeId']);
+        });
+        return $downStores;
+    }
+
+    private static function latestRowByLastSeen(array $rows): array
+    {
+        usort($rows, static function (array $a, array $b): int {
+            $left = self::parseCsvDate((string)($a['Last Seen Online'] ?? '')) ?? 0;
+            $right = self::parseCsvDate((string)($b['Last Seen Online'] ?? '')) ?? 0;
+            return $right <=> $left;
+        });
+        return $rows[0] ?? [];
     }
 
     private static function comparison(array $previousRows, array $currentRows): array
