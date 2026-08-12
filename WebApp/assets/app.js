@@ -440,6 +440,14 @@ const FEATURE_RELEASES = [
         type: "Improvement",
         status: "Released",
     },
+    {
+        version: "v006.04",
+        releasedAt: "August 11, 2026 22:12 EST",
+        title: "Filtered Report Export Buttons",
+        description: "Added CSV and Excel export buttons so users can download the current filtered and sorted report view, including out-of-date stores and mixed-version store lists.",
+        type: "Feature",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
@@ -1662,7 +1670,13 @@ function reportView(report) {
                 ${comparisonTab}
             </div>
             <div class="toolbar">
-                <input id="reportSearch" class="search" type="search" placeholder="Search brands, stores, versions, terminals, and alerts">
+                <div class="report-tools">
+                    <input id="reportSearch" class="search" type="search" placeholder="Search brands, stores, versions, terminals, and alerts">
+                    <div class="export-actions" aria-label="Export current filtered view">
+                        <button class="btn export-btn" id="exportCsvBtn" type="button">Export CSV</button>
+                        <button class="btn export-btn" id="exportExcelBtn" type="button">Export Excel</button>
+                    </div>
+                </div>
                 <span class="subtle">Generated ${escapeHtml(report.generatedOn)} from ${escapeHtml(report.sourceCsv)}</span>
             </div>
             <div id="tabContent">${tabContent(report, state.activeTab)}</div>
@@ -1854,6 +1868,8 @@ function bindReport() {
     document.querySelectorAll(".dashboard-shortcut").forEach(button => {
         button.addEventListener("click", () => followDashboardShortcut(button.dataset.shortcut));
     });
+    document.getElementById("exportCsvBtn")?.addEventListener("click", () => exportCurrentView("csv"));
+    document.getElementById("exportExcelBtn")?.addEventListener("click", () => exportCurrentView("excel"));
     bindSortableHeaders();
 }
 
@@ -1912,6 +1928,94 @@ function sortTable(table, columnIndex) {
         return direction === "asc" ? result : -result;
     });
     tbody.append(...rows);
+}
+
+function exportCurrentView(format) {
+    const exportData = currentVisibleTableData();
+    if (!exportData.sections.some(section => section.rows.length > 0)) {
+        alert("There are no visible rows to export.");
+        return;
+    }
+    const baseName = exportFileName(format);
+    if (format === "excel") {
+        downloadFile(`${baseName}.xls`, excelHtml(exportData), "application/vnd.ms-excel;charset=utf-8");
+        return;
+    }
+    downloadFile(`${baseName}.csv`, csvText(exportData), "text/csv;charset=utf-8");
+}
+
+function currentVisibleTableData() {
+    const sections = [];
+    document.querySelectorAll("#tabContent .table-wrap").forEach(wrap => {
+        const table = wrap.querySelector("table");
+        const tableHeaders = [...table?.querySelectorAll("thead th") || []].map(cell => cell.textContent.trim());
+        if (!tableHeaders.length) return;
+        const section = exportSectionLabel(wrap);
+        const rows = [];
+        table?.querySelectorAll("tbody tr").forEach(row => {
+            if (row.style.display === "none") return;
+            const cells = [...row.children].map(cell => cell.textContent.replace(/\s+/g, " ").trim());
+            rows.push(cells);
+        });
+        if (rows.length) sections.push({ section, headers: tableHeaders, rows });
+    });
+    return { sections };
+}
+
+function exportSectionLabel(element) {
+    let current = element.previousElementSibling;
+    while (current) {
+        if (/^H[1-3]$/i.test(current.tagName)) return current.textContent.trim();
+        current = current.previousElementSibling;
+    }
+    const section = element.closest(".report-section");
+    return section?.querySelector("h2")?.textContent.trim() || activeTabLabel();
+}
+
+function activeTabLabel() {
+    return document.querySelector(`.tab-btn[data-tab="${state.activeTab}"]`)?.textContent.trim() || "Report";
+}
+
+function exportFileName(format) {
+    const generated = String(state.report?.generatedOn || new Date().toISOString()).replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "");
+    const tab = activeTabLabel().replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase() || "report";
+    return `qu-pos-${tab}-filtered-${generated}-${format}`;
+}
+
+function csvText({ sections }) {
+    const lines = [];
+    sections.forEach((section, index) => {
+        if (index > 0) lines.push("");
+        lines.push([`Section: ${section.section}`].map(csvCell).join(","));
+        lines.push(section.headers.map(csvCell).join(","));
+        section.rows.forEach(row => lines.push(row.map(csvCell).join(",")));
+    });
+    return lines.join("\r\n");
+}
+
+function csvCell(value) {
+    const text = String(value ?? "");
+    return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+}
+
+function excelHtml({ sections }) {
+    const tables = sections.map(section => {
+        const headerRow = `<tr>${section.headers.map(cell => `<th>${escapeHtml(cell)}</th>`).join("")}</tr>`;
+        const bodyRows = section.rows.map(row => `<tr>${row.map(cell => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`).join("");
+        return `<h2>${escapeHtml(section.section)}</h2><table>${headerRow}${bodyRows}</table>`;
+    }).join("<br>");
+    return `<!doctype html><html><head><meta charset="utf-8"></head><body>${tables}</body></html>`;
+}
+
+function downloadFile(fileName, content, mimeType) {
+    const blob = new Blob([content], { type: mimeType });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(link.href);
 }
 
 boot();

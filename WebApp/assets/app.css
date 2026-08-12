@@ -774,6 +774,27 @@ h2 {
     margin-bottom: 14px;
 }
 
+.report-tools {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+}
+
+.export-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.export-btn {
+    min-height: 42px;
+    padding: 10px 13px;
+    border-color: rgba(35, 199, 255, .55);
+    color: #d9f6ff;
+    background: rgba(35, 199, 255, .08);
+}
+
 .search {
     width: min(520px, 100%);
     border: 1px solid var(--line);
@@ -1163,6 +1184,8 @@ details.version-detail summary span {
 @media (max-width: 640px) {
     .main { padding: 18px; }
     .toolbar, .report-item, .release-heading, .settings-actions-heading, .inline-form { flex-direction: column; align-items: stretch; }
+    .report-tools, .export-actions { width: 100%; }
+    .export-actions .btn { flex: 1 1 140px; }
     .release-current { margin: 0; }
     .user-profile-card { grid-template-columns: auto minmax(0, 1fr); }
     .user-profile-card .logout-btn { grid-column: 1 / -1; justify-self: stretch; }
