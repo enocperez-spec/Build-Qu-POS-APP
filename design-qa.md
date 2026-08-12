@@ -36,6 +36,18 @@ The reference and implementation were opened together for each dashboard level. 
 - Calculation fixture verifies distinct Store ID and Device ID counting, required-QuBox inference, status reconciliation, fleet score denominator, QuBox-down count, and brand-filter denominators.
 - Static validation passed for every PHP file and the JavaScript bundle.
 
+## Production SQL Validation
+
+The token-protected production validation action ran on IONOS against MariaDB and passed every check. The current 30-day window contains three available terminal snapshots from August 11, 2026 12:23 PM through 5:52 PM; the interface exposes that limited coverage instead of implying 30 complete days of history.
+
+- 5,778 total devices reconcile to 5,320 Healthy + 60 Warning + 158 Critical + 240 Offline.
+- The 92.1% fleet score reconciles to 15,950 healthy checks divided by 17,319 expected checks.
+- All POS, QuBox, Kiosk, QuKDS, and QuORB status totals reconcile independently.
+- All stable-version adoption percentages recalculate from stable-device and reporting-device counts.
+- Brand-filtered store and device denominators remain bounded by the all-brand totals.
+- A live store scorecard reconciles device rows and status categories to its expected-device total.
+- The validation action rejects unauthenticated requests with HTTP 401.
+
 ## Comparison History
 
 No P0, P1, or P2 visual differences remained after the first normalized comparison. Intentional differences are the existing application shell, the removed Region control, and the expanded site status categories required for accurate reconciliation.
