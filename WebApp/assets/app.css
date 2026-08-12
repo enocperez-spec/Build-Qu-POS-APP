@@ -454,6 +454,63 @@ h2 {
     margin-top: 0;
 }
 
+.dashboard-control-panel {
+    display: grid;
+    grid-template-columns: minmax(330px, 1.15fr) minmax(520px, 1.75fr) minmax(260px, .8fr);
+    gap: 12px;
+    align-items: stretch;
+    border: 1px solid rgba(35, 199, 255, .26);
+    border-radius: 18px;
+    padding: 14px;
+    margin-bottom: 18px;
+    background:
+        linear-gradient(135deg, rgba(35, 199, 255, .08), transparent 42%),
+        rgba(12, 24, 43, .82);
+}
+
+.dashboard-control-section,
+.dashboard-control-panel .brand-filter-panel {
+    border: 1px solid rgba(35, 199, 255, .22);
+    border-radius: 14px;
+    background: rgba(16, 29, 50, .72);
+    padding: 16px;
+    min-width: 0;
+}
+
+.dashboard-control-upload {
+    display: grid;
+    gap: 14px;
+}
+
+.dashboard-control-upload h2 {
+    margin: 0 0 10px;
+}
+
+.dashboard-control-upload .subtle {
+    margin: 0;
+    line-height: 1.45;
+}
+
+.dashboard-control-health {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    align-content: center;
+}
+
+.dashboard-control-health .health-item {
+    min-width: 0;
+    align-items: flex-start;
+    border: 1px solid rgba(35, 199, 255, .16);
+    border-radius: 12px;
+    padding: 12px;
+    background: rgba(4, 12, 24, .22);
+}
+
+.dashboard-control-health .health-item strong {
+    font-size: 13px;
+}
+
 .dashboard-health {
     display: flex;
     align-items: center;
@@ -760,6 +817,26 @@ h2 {
     background: linear-gradient(135deg, rgba(35, 199, 255, .09), rgba(5, 12, 25, .36));
     padding: 16px;
     margin: 0 0 18px;
+}
+
+.dashboard-control-panel .brand-filter-panel {
+    margin: 0;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: center;
+}
+
+.dashboard-control-panel .brand-filter-heading {
+    gap: 6px;
+}
+
+.dashboard-control-panel .brand-filter-controls {
+    justify-content: stretch;
+}
+
+.dashboard-control-panel .brand-select {
+    width: 100%;
+    min-width: 0;
 }
 
 .brand-filter-heading {
@@ -1195,9 +1272,24 @@ details.version-detail summary span {
     .sidebar { position: static; height: auto; }
     .upload-panel { grid-template-columns: 1fr; }
     .dashboard-selector { grid-template-columns: 1fr; }
+    .dashboard-control-panel { grid-template-columns: 1fr; }
+    .dashboard-control-health { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .summary-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     .topbar { align-items: center; }
     .user-profile-card { min-width: 340px; }
+}
+
+@media (max-width: 1380px) and (min-width: 1101px) {
+    .dashboard-control-panel {
+        grid-template-columns: minmax(300px, 1fr) minmax(420px, 1.3fr);
+    }
+
+    .dashboard-control-panel .brand-filter-panel {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: minmax(220px, .5fr) 1fr;
+        align-items: center;
+    }
 }
 
 @media (max-width: 1500px) and (min-width: 1101px) {
@@ -1223,6 +1315,10 @@ details.version-detail summary span {
     .toolbar, .report-item, .release-heading, .settings-actions-heading, .inline-form, .brand-filter-panel { flex-direction: column; align-items: stretch; }
     .brand-filter-controls { justify-content: stretch; }
     .brand-select { width: 100%; }
+    .dashboard-control-panel { padding: 10px; }
+    .dashboard-control-section,
+    .dashboard-control-panel .brand-filter-panel { padding: 14px; }
+    .dashboard-control-health { grid-template-columns: 1fr; }
     .report-tools, .export-actions { width: 100%; }
     .export-actions .btn { flex: 1 1 140px; }
     .release-current { margin: 0; }

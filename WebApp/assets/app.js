@@ -7,6 +7,7 @@ const state = {
     htmlUrl: null,
     reports: [],
     uploads: [],
+    dashboardUploads: [],
     selectedUploadId: "",
     dashboardHealth: null,
     activeTab: "current",
@@ -458,6 +459,14 @@ const FEATURE_RELEASES = [
         type: "Feature",
         status: "Released",
     },
+    {
+        version: "v006.06",
+        releasedAt: "August 11, 2026 22:28 EST",
+        title: "Compact Dashboard Control Row",
+        description: "Combined the past upload selector, sync/job status indicators, and dashboard brand filter into one compact dashboard control row to reduce vertical clutter.",
+        type: "Improvement",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
@@ -672,44 +681,57 @@ function renderHome() {
     state.report = null;
     state.baseReport = null;
     state.selectedUploadId = "";
-    app.innerHTML = shell(header() + dashboardUploadSelector() + `<div id="dashboardHealthMount"></div><div id="reportMount">${latestReportLoading()}</div>`, "dashboard");
+    app.innerHTML = shell(header() + `<div id="dashboardControlsMount">${dashboardControlPanel()}</div><div id="reportMount">${latestReportLoading()}</div>`, "dashboard");
     bindShell();
-    bindDashboardUploadSelector();
+    bindDashboardControls();
     if (state.report) bindReport();
     loadDashboardUploads();
     if (!state.report) loadLatestReport();
 }
 
-function dashboardUploadSelector() {
+function dashboardControlPanel() {
     return `
-        <section class="panel dashboard-selector">
-            <div>
-                <h2>Past Data Uploads</h2>
-                <p class="subtle">Select a saved CSV upload to view that historical report. The selected upload is compared against the upload immediately before it.</p>
+        <section class="dashboard-control-panel">
+            <div class="dashboard-control-section dashboard-control-upload">
+                <div>
+                    <h2>Past Data Uploads</h2>
+                    <p class="subtle">Select a saved CSV upload to view that historical report. The selected upload is compared against the upload immediately before it.</p>
+                </div>
+                <div class="selector-actions">
+                    <select class="text-input" id="dashboardUploadSelect">
+                        ${dashboardUploadOptions()}
+                    </select>
+                    <button class="btn" id="loadUploadReportBtn" type="button">Load Upload</button>
+                </div>
             </div>
-            <div class="selector-actions">
-                <select class="text-input" id="dashboardUploadSelect">
-                    <option value="">Latest Generated Report</option>
-                </select>
-                <button class="btn" id="loadUploadReportBtn" type="button">Load Upload</button>
+            <div class="dashboard-control-section dashboard-control-health">
+                ${dashboardHealthItems(state.dashboardHealth)}
             </div>
+            ${brandFilterBar("dashboard")}
         </section>`;
 }
 
 function dashboardHealthPanel(health) {
     if (!health) return "";
+    return `<section class="dashboard-health">${dashboardHealthItems(health)}</section>`;
+}
+
+function dashboardHealthItems(health) {
+    if (!health) return `
+        ${healthItem("Terminal Sync", "Loading...", "Checking latest upload", "neutral")}
+        ${healthItem("Store Sync", "Loading...", "Checking latest store import", "neutral")}
+        ${healthItem("Terminal Job", "Loading...", "Checking automation", "neutral")}
+        ${healthItem("Store Job", "Loading...", "Checking automation", "neutral")}`;
     const terminal = health.latestTerminalUpload;
     const store = health.latestStoreImport;
     const jobs = health.apiJobs || [];
     const terminalJob = jobs.find(job => job.jobKey === "qu_ei_terminals_csv");
     const storeJob = jobs.find(job => job.jobKey === "qu_ei_stores_csv");
     return `
-        <section class="dashboard-health">
-            ${healthItem("Terminal Sync", terminal ? dateTimeLabel(terminal.uploadedAt) : "Not synced", terminal ? `${terminal.rowCount} rows` : "Upload or run job", terminal ? "sync" : "warning")}
-            ${healthItem("Store Sync", store ? dateTimeLabel(store.uploadedAt) : "Not synced", store ? `${store.rowCount} stores` : "Run Store export", store ? "store" : "warning")}
-            ${healthItem("Terminal Job", terminalJob?.status || "Not Run Yet", terminalJob ? `Next ${dateTimeLabel(terminalJob.nextRunAt)}` : "No schedule found", statusTone(terminalJob?.status))}
-            ${healthItem("Store Job", storeJob?.status || "Not Run Yet", storeJob ? `Next ${dateTimeLabel(storeJob.nextRunAt)}` : "No schedule found", statusTone(storeJob?.status))}
-        </section>`;
+        ${healthItem("Terminal Sync", terminal ? dateTimeLabel(terminal.uploadedAt) : "Not synced", terminal ? `${terminal.rowCount} rows` : "Upload or run job", terminal ? "sync" : "warning")}
+        ${healthItem("Store Sync", store ? dateTimeLabel(store.uploadedAt) : "Not synced", store ? `${store.rowCount} stores` : "Run Store export", store ? "store" : "warning")}
+        ${healthItem("Terminal Job", terminalJob?.status || "Not Run Yet", terminalJob ? `Next ${dateTimeLabel(terminalJob.nextRunAt)}` : "No schedule found", statusTone(terminalJob?.status))}
+        ${healthItem("Store Job", storeJob?.status || "Not Run Yet", storeJob ? `Next ${dateTimeLabel(storeJob.nextRunAt)}` : "No schedule found", statusTone(storeJob?.status))}`;
 }
 
 function healthItem(label, value, meta, type) {
@@ -757,6 +779,26 @@ function bindDashboardUploadSelector() {
     document.getElementById("dashboardUploadSelect")?.addEventListener("change", event => {
         if (event.target.value) loadReportFromUpload(event.target.value);
     });
+}
+
+function bindDashboardControls() {
+    bindDashboardUploadSelector();
+    bindBrandFilters();
+}
+
+function dashboardUploadOptions() {
+    const uploads = state.dashboardUploads || [];
+    return `<option value="">Latest Generated Report</option>` + uploads.map((upload, index) => {
+        const label = `${index === 0 ? "Current CSV" : (index === 1 ? "Previous CSV" : "Historical CSV")} - ${new Date(upload.uploadedAt).toLocaleString()} - ${upload.filename}`;
+        return `<option value="${escapeHtml(upload.id)}"${String(upload.id) === String(state.selectedUploadId) ? " selected" : ""}>${escapeHtml(label)}</option>`;
+    }).join("");
+}
+
+function refreshDashboardControls() {
+    const mount = document.getElementById("dashboardControlsMount");
+    if (!mount) return;
+    mount.innerHTML = dashboardControlPanel();
+    bindDashboardControls();
 }
 
 function readOnlyPanel() {
@@ -1056,7 +1098,7 @@ async function loadLatestReport() {
         if (!payload.ok) throw new Error(payload.error || "Could not load latest report.");
         if (!payload.report) {
             state.dashboardHealth = payload.health || null;
-            document.getElementById("dashboardHealthMount").innerHTML = dashboardHealthPanel(state.dashboardHealth);
+            refreshDashboardControls();
             mount.innerHTML = `<section class="empty" style="margin-top:18px;">No generated reports yet. Tech or Admin users can upload a CSV from the Upload CSV page.</section>`;
             return;
         }
@@ -1064,8 +1106,8 @@ async function loadLatestReport() {
         state.dashboardHealth = payload.health || null;
         state.htmlUrl = payload.metadata?.url || null;
         refreshHeaderLastUpdated();
-        document.getElementById("dashboardHealthMount").innerHTML = dashboardHealthPanel(state.dashboardHealth);
-        mount.innerHTML = reportView(state.report);
+        refreshDashboardControls();
+        mount.innerHTML = reportView(state.report, { includeBrandFilter: false });
         bindReport();
     } catch (error) {
         mount.innerHTML = `<section class="empty" style="margin-top:18px;">${escapeHtml(error.message)}</section>`;
@@ -1073,19 +1115,20 @@ async function loadLatestReport() {
 }
 
 async function loadDashboardUploads() {
-    const select = document.getElementById("dashboardUploadSelect");
-    if (!select) return;
     try {
         const response = await fetch("api/uploads.php?action=list");
         const payload = await response.json();
         if (!payload.ok) throw new Error(payload.error || "Could not load upload history.");
+        state.dashboardUploads = payload.uploads || [];
+        refreshDashboardControls();
+        const select = document.getElementById("dashboardUploadSelect");
+        if (!select) return;
         const currentValue = select.value;
-        select.innerHTML = `<option value="">Latest Generated Report</option>` + payload.uploads.map((upload, index) => {
-            const label = `${index === 0 ? "Current CSV" : (index === 1 ? "Previous CSV" : "Historical CSV")} - ${new Date(upload.uploadedAt).toLocaleString()} - ${upload.filename}`;
-            return `<option value="${escapeHtml(upload.id)}">${escapeHtml(label)}</option>`;
-        }).join("");
+        select.innerHTML = dashboardUploadOptions();
         select.value = state.selectedUploadId || currentValue;
     } catch (error) {
+        const select = document.getElementById("dashboardUploadSelect");
+        if (!select) return;
         select.innerHTML = `<option value="">${escapeHtml(error.message)}</option>`;
     }
 }
@@ -1101,7 +1144,8 @@ async function loadReportFromUpload(id) {
         state.selectedUploadId = String(id);
         state.htmlUrl = null;
         refreshHeaderLastUpdated();
-        mount.innerHTML = reportView(state.report);
+        refreshDashboardControls();
+        mount.innerHTML = reportView(state.report, { includeBrandFilter: false });
         bindReport();
     } catch (error) {
         mount.innerHTML = `<section class="empty" style="margin-top:18px;">${escapeHtml(error.message)}</section>`;
@@ -1676,11 +1720,12 @@ async function deleteUser(id) {
     await loadUsers();
 }
 
-function reportView(report) {
+function reportView(report, options = {}) {
+    const includeBrandFilter = options.includeBrandFilter ?? true;
     const comparisonTab = report.comparison ? `<button class="tab-btn" data-tab="comparison">Comparison</button>` : "";
     return `
         <section class="report">
-            ${brandFilterBar()}
+            ${includeBrandFilter ? brandFilterBar() : ""}
             ${summaryCards(report)}
             <div class="tabs">
                 <button class="tab-btn active" data-tab="current">Current Versions</button>
@@ -1895,14 +1940,14 @@ function bindReport() {
     bindSortableHeaders();
 }
 
-function brandFilterBar() {
+function brandFilterBar(variant = "report") {
     const base = state.baseReport || state.report;
     const brands = availableBrands(base);
     const combinations = availableBrandCombinations(base);
     const selectedBrands = state.brandFilter.selectedBrands || [];
     const primaryValue = state.brandFilter.mode === "brand" ? `brand:${state.brandFilter.brand}` : state.brandFilter.mode;
     return `
-        <section class="brand-filter-panel">
+        <section class="brand-filter-panel brand-filter-${escapeHtml(variant)}">
             <div class="brand-filter-heading">
                 <span class="label">Dashboard Brand Filter</span>
                 <strong>${escapeHtml(activeBrandFilterLabel())}</strong>
@@ -1961,7 +2006,9 @@ function renderFilteredReport() {
     const mount = document.getElementById("reportMount");
     if (!mount || !state.baseReport) return;
     state.report = applyBrandFilter(state.baseReport);
-    mount.innerHTML = reportView(state.report);
+    const isDashboard = state.currentPage === "dashboard";
+    if (isDashboard) refreshDashboardControls();
+    mount.innerHTML = reportView(state.report, { includeBrandFilter: !isDashboard });
     refreshHeaderLastUpdated();
     bindReport();
 }
