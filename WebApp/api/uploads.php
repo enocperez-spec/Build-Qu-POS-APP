@@ -20,6 +20,12 @@ try {
         exit;
     }
 
+    if ($action === 'list-store-imports') {
+        Auth::requireLogin();
+        echo json_encode(['ok' => true, 'imports' => Database::listStoreImports($pdo)]);
+        exit;
+    }
+
     if ($action === 'delete') {
         Auth::requireAdmin();
         Database::deleteCsvUpload($pdo, (int)($input['id'] ?? 0));

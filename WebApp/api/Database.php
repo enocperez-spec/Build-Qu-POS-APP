@@ -409,6 +409,23 @@ final class Database
         return array_map([self::class, 'csvUploadRow'], $statement->fetchAll());
     }
 
+    public static function listStoreImports(PDO $pdo): array
+    {
+        self::initialize($pdo);
+        $statement = $pdo->query(
+            "SELECT id, original_filename, row_count, uploaded_at
+             FROM store_imports
+             ORDER BY uploaded_at DESC, id DESC
+             LIMIT 250"
+        );
+        return array_map(static fn(array $row): array => [
+            'id' => (int)$row['id'],
+            'filename' => $row['original_filename'],
+            'rowCount' => (int)$row['row_count'],
+            'uploadedAt' => date('c', strtotime($row['uploaded_at'])),
+        ], $statement->fetchAll());
+    }
+
     public static function getCsvUploadRows(PDO $pdo, int $uploadId): array
     {
         self::initialize($pdo);

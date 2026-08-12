@@ -11,6 +11,7 @@ const state = {
     selectedUploadId: "",
     dashboardHealth: null,
     activeTab: "current",
+    uploadTab: "terminal",
     settingsTab: "users",
     currentPage: "dashboard",
     releaseNotesReturnPage: "dashboard",
@@ -475,6 +476,14 @@ const FEATURE_RELEASES = [
         type: "Feature",
         status: "Released",
     },
+    {
+        version: "v006.08",
+        releasedAt: "August 11, 2026 22:52 EST",
+        title: "Store Import History Tab",
+        description: "Updated the Upload CSV page so the Store Information tab displays Store Information CSV import history instead of terminal upload history.",
+        type: "Improvement",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
@@ -665,10 +674,10 @@ function uploadPanel() {
     return `
         <section class="panel upload-workspace">
             <div class="upload-tabs" role="tablist" aria-label="CSV upload type">
-                <button class="upload-tab active" type="button" data-upload-tab="terminal">Terminal CSV</button>
-                <button class="upload-tab" type="button" data-upload-tab="store">Store Information CSV</button>
+                <button class="upload-tab${state.uploadTab === "terminal" ? " active" : ""}" type="button" data-upload-tab="terminal">Terminal CSV</button>
+                <button class="upload-tab${state.uploadTab === "store" ? " active" : ""}" type="button" data-upload-tab="store">Store Information CSV</button>
             </div>
-            <div class="upload-tab-panel active" id="terminalUploadPanel">
+            <div class="upload-tab-panel${state.uploadTab === "terminal" ? " active" : ""}" id="terminalUploadPanel">
                 <div class="upload-panel">
                     <div class="drop-card">
                         <label for="currentCsv">Terminal CSV Upload <span class="subtle">(required)</span></label>
@@ -690,7 +699,7 @@ function uploadPanel() {
                     <div id="statusMessage" class="status-message"></div>
                 </section>
             </div>
-            <div class="upload-tab-panel" id="storeUploadPanel">
+            <div class="upload-tab-panel${state.uploadTab === "store" ? " active" : ""}" id="storeUploadPanel">
                 <div class="upload-panel">
                     <div class="drop-card">
                         <label for="storeCsv">Store Information CSV Upload <span class="subtle">(required)</span></label>
@@ -849,6 +858,11 @@ function readOnlyPanel() {
         </section>`;
 }
 
+function uploadHistoryPanel() {
+    const title = state.uploadTab === "store" ? "Store Information CSV History" : "Terminal CSV Upload History";
+    return `<section class="panel" style="padding:20px;margin-top:18px;"><h2 id="uploadHistoryTitle">${escapeHtml(title)}</h2><div id="uploadHistory" class="report-list"><div class="empty">Loading upload history...</div></div></section>`;
+}
+
 function latestReportLoading() {
     return `<section class="empty" style="margin-top:18px;">Loading latest generated report...</section>`;
 }
@@ -859,10 +873,10 @@ function renderUploadPage() {
         renderHome();
         return;
     }
-    app.innerHTML = shell(header() + uploadPanel() + `<section class="panel" style="padding:20px;margin-top:18px;"><h2>Terminal CSV Upload History</h2><div id="uploadHistory" class="report-list"><div class="empty">Loading upload history...</div></div></section>`, "upload");
+    app.innerHTML = shell(header() + uploadPanel() + uploadHistoryPanel(), "upload");
     bindShell();
     bindUpload();
-    loadUploads();
+    loadActiveUploadHistory();
 }
 
 async function boot() {
@@ -1094,9 +1108,13 @@ function bindUpload() {
 }
 
 function activateUploadTab(tab) {
+    state.uploadTab = tab === "store" ? "store" : "terminal";
     document.querySelectorAll(".upload-tab").forEach(button => button.classList.toggle("active", button.dataset.uploadTab === tab));
-    document.getElementById("terminalUploadPanel")?.classList.toggle("active", tab === "terminal");
-    document.getElementById("storeUploadPanel")?.classList.toggle("active", tab === "store");
+    document.getElementById("terminalUploadPanel")?.classList.toggle("active", state.uploadTab === "terminal");
+    document.getElementById("storeUploadPanel")?.classList.toggle("active", state.uploadTab === "store");
+    const title = document.getElementById("uploadHistoryTitle");
+    if (title) title.textContent = state.uploadTab === "store" ? "Store Information CSV History" : "Terminal CSV Upload History";
+    loadActiveUploadHistory();
 }
 
 function setStep(index, label) {
@@ -1173,6 +1191,7 @@ async function importStoreCsv() {
         state.dashboardHealth = payload.health || state.dashboardHealth;
         await pause(180);
         setStoreStep(4, `Done. Imported ${payload.rowCount} store rows.`);
+        await loadStoreImports();
     } catch (error) {
         document.getElementById("storeStatusMessage").textContent = error.message;
     } finally {
@@ -1263,6 +1282,31 @@ async function loadUploads() {
     list.querySelectorAll("button[data-delete-upload]").forEach(button => {
         button.addEventListener("click", () => deleteUpload(button.dataset.deleteUpload));
     });
+}
+
+async function loadStoreImports() {
+    const list = document.getElementById("uploadHistory");
+    if (!list) return;
+    const response = await fetch("api/uploads.php?action=list-store-imports");
+    const payload = await response.json();
+    if (!payload.ok) {
+        list.innerHTML = `<div class="empty">${escapeHtml(payload.error)}</div>`;
+        return;
+    }
+    const imports = payload.imports || [];
+    list.innerHTML = imports.length ? imports.map((item, index) => `
+        <div class="report-item">
+            <div>
+                <strong>${escapeHtml(item.filename)}</strong><br>
+                <span class="subtle">${index === 0 ? "Current Store Information CSV" : "Historical Store Information CSV"} • ${escapeHtml(new Date(item.uploadedAt).toLocaleString())} • ${escapeHtml(item.rowCount)} stores</span>
+            </div>
+        </div>`).join("") : `<div class="empty">No Store Information CSV imports have been saved yet.</div>`;
+}
+
+function loadActiveUploadHistory() {
+    const list = document.getElementById("uploadHistory");
+    if (list) list.innerHTML = `<div class="empty">Loading upload history...</div>`;
+    return state.uploadTab === "store" ? loadStoreImports() : loadUploads();
 }
 
 async function deleteUpload(id) {
