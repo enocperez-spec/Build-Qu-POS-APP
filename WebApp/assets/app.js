@@ -424,6 +424,14 @@ const FEATURE_RELEASES = [
         type: "Improvement",
         status: "Released",
     },
+    {
+        version: "v006.02",
+        releasedAt: "August 11, 2026 21:57 EST",
+        title: "Release Notes Current Version Spacing",
+        description: "Added spacing around the Current Version badge on the Release Notes page so the header area has cleaner separation from the panel edge and release list.",
+        type: "Improvement",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
