@@ -51,6 +51,25 @@ client.Connect();
 
 EnsureRemoteDirectory(client, remoteRoot);
 
+var retiredDiagnosticFiles = new[]
+{
+    "api/config-check.php",
+    "api/db-check.php",
+    "api/debug-log.php",
+    "api/mysqli-check.php",
+    "api/php-version.php",
+    "api/setup-check.php",
+};
+foreach (var retiredFile in retiredDiagnosticFiles)
+{
+    var retiredRemotePath = CombineRemote(remoteRoot, retiredFile);
+    if (client.Exists(retiredRemotePath))
+    {
+        client.DeleteFile(retiredRemotePath);
+        Console.WriteLine($"Deleted retired endpoint {retiredFile}");
+    }
+}
+
 foreach (var file in Directory.EnumerateFiles(localRoot, "*", SearchOption.AllDirectories))
 {
     var relative = Path.GetRelativePath(localRoot, file).Replace('\\', '/');

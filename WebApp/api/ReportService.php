@@ -755,8 +755,12 @@ final class ReportService
 
     private static function renderReportHtml(array $report): string
     {
-        $json = json_encode($report, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-        return '<!doctype html><html lang="en"><head><meta charset="utf-8"><base href="../"><meta name="viewport" content="width=device-width,initial-scale=1"><title>QU POS Current Versions</title><link rel="stylesheet" href="assets/app.css"></head><body><div id="app" class="report-only"></div><script>window.__QU_REPORT__=' . $json . ';</script><script src="assets/app.js"></script></body></html>';
+        $json = json_encode(
+            $report,
+            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+        ) ?: '{}';
+        $encoded = htmlspecialchars($json, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        return '<!doctype html><html lang="en"><head><meta charset="utf-8"><base href="../"><meta name="viewport" content="width=device-width,initial-scale=1"><title>QU POS Current Versions</title><link rel="stylesheet" href="assets/app.css"></head><body><div id="app" class="report-only" data-qu-report="' . $encoded . '"></div><script src="assets/app.js"></script></body></html>';
     }
 
     private static function isPosVersion(string $version): bool

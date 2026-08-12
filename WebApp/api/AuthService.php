@@ -21,7 +21,7 @@ final class Auth
                 'path' => '/',
                 'httponly' => true,
                 'samesite' => 'Lax',
-                'secure' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off'),
+                'secure' => true,
             ]);
             session_start();
         }

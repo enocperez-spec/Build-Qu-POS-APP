@@ -51,11 +51,11 @@ try {
         $mail = SecurityService::mailStatus();
         $mailReady = $mail['enabled'] && $mail['functionAvailable'];
         if (count($missing) === 0 && $policyWithinBounds && $mailReady) {
-            SecurityService::audit($pdo, null, 'deployment', 'Security controls validation', 'application_release', 'v007.04', 'v007.04', 'successful');
+            SecurityService::audit($pdo, null, 'deployment', 'Security controls validation', 'application_release', 'v007.06', 'v007.06', 'successful');
         }
         echo json_encode([
             'ok' => count($missing) === 0 && $policyWithinBounds && $mailReady,
-            'version' => 'v007.04',
+            'version' => 'v007.06',
             'checks' => [
                 'requiredTablesPresent' => count($missing) === 0,
                 'missingTables' => $missing,

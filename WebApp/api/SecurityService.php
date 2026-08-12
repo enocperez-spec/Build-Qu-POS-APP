@@ -144,30 +144,13 @@ final class SecurityService
             return;
         }
         $policy = self::policy($pdo);
-        $statement = $pdo->prepare(
-            "SELECT attempts, window_started_at FROM login_rate_limits WHERE scope = 'login_ip' AND key_hash = :key_hash LIMIT 1"
+        self::incrementRateLimitCounter(
+            $pdo,
+            'login_ip',
+            $keyHash,
+            $policy['loginRateLimitAttempts'],
+            $policy['loginRateLimitWindowMinutes']
         );
-        $statement->execute([':key_hash' => $keyHash]);
-        $row = $statement->fetch();
-        $windowExpired = !$row || strtotime((string)$row['window_started_at']) <= time() - ($policy['loginRateLimitWindowMinutes'] * 60);
-        $attempts = $windowExpired ? 1 : ((int)$row['attempts'] + 1);
-        $blockedUntil = $attempts >= $policy['loginRateLimitAttempts']
-            ? date('Y-m-d H:i:s', time() + ($policy['loginRateLimitWindowMinutes'] * 60))
-            : null;
-        $statement = $pdo->prepare(
-            "INSERT INTO login_rate_limits (scope, key_hash, attempts, window_started_at, blocked_until, updated_at)
-             VALUES ('login_ip', :key_hash, :attempts, :window_started_at, :blocked_until, :updated_at)
-             ON DUPLICATE KEY UPDATE attempts = VALUES(attempts), window_started_at = VALUES(window_started_at),
-                                     blocked_until = VALUES(blocked_until), updated_at = VALUES(updated_at)"
-        );
-        $now = date('Y-m-d H:i:s');
-        $statement->execute([
-            ':key_hash' => $keyHash,
-            ':attempts' => $attempts,
-            ':window_started_at' => $windowExpired ? $now : $row['window_started_at'],
-            ':blocked_until' => $blockedUntil,
-            ':updated_at' => $now,
-        ]);
     }
 
     public static function isAccountLocked(array $user): bool
@@ -178,20 +161,33 @@ final class SecurityService
     public static function recordAccountFailure(PDO $pdo, array $user): bool
     {
         $policy = self::policy($pdo);
-        $attempts = (int)($user['failed_login_attempts'] ?? 0) + 1;
-        $locked = $attempts >= $policy['failedAttemptThreshold'];
-        $statement = $pdo->prepare(
-            "UPDATE users SET failed_login_attempts = :attempts, last_failed_login_at = :failed_at,
-                    locked_until = :locked_until, updated_at = :updated_at WHERE id = :id"
-        );
-        $now = date('Y-m-d H:i:s');
-        $statement->execute([
-            ':attempts' => $attempts,
-            ':failed_at' => $now,
-            ':locked_until' => $locked ? date('Y-m-d H:i:s', time() + ($policy['lockoutDurationMinutes'] * 60)) : null,
-            ':updated_at' => $now,
-            ':id' => (int)$user['id'],
-        ]);
+        $ownsTransaction = !$pdo->inTransaction();
+        try {
+            if ($ownsTransaction) $pdo->beginTransaction();
+            $statement = $pdo->prepare("SELECT failed_login_attempts FROM users WHERE id = :id LIMIT 1 FOR UPDATE");
+            $statement->execute([':id' => (int)$user['id']]);
+            $persistedAttempts = $statement->fetchColumn();
+            if ($persistedAttempts === false) throw new RuntimeException('User account was not found.');
+
+            $attempts = (int)$persistedAttempts + 1;
+            $locked = $attempts >= $policy['failedAttemptThreshold'];
+            $now = date('Y-m-d H:i:s');
+            $statement = $pdo->prepare(
+                "UPDATE users SET failed_login_attempts = :attempts, last_failed_login_at = :failed_at,
+                        locked_until = :locked_until, updated_at = :updated_at WHERE id = :id"
+            );
+            $statement->execute([
+                ':attempts' => $attempts,
+                ':failed_at' => $now,
+                ':locked_until' => $locked ? date('Y-m-d H:i:s', time() + ($policy['lockoutDurationMinutes'] * 60)) : null,
+                ':updated_at' => $now,
+                ':id' => (int)$user['id'],
+            ]);
+            if ($ownsTransaction) $pdo->commit();
+        } catch (Throwable $exception) {
+            if ($ownsTransaction && $pdo->inTransaction()) $pdo->rollBack();
+            throw $exception;
+        }
         if ($locked) {
             self::audit($pdo, $user, 'authentication', 'Account locked', 'user', (string)$user['id'], $user['email'], 'blocked', [
                 'failedAttempts' => $attempts,
@@ -534,26 +530,68 @@ final class SecurityService
     private static function consumeRequestLimit(PDO $pdo, string $scope, string $key, int $maximum, int $windowMinutes): bool
     {
         $keyHash = hash('sha256', strtolower(trim($key)));
-        $statement = $pdo->prepare("SELECT attempts, window_started_at, blocked_until FROM login_rate_limits WHERE scope = :scope AND key_hash = :key_hash LIMIT 1");
-        $statement->execute([':scope' => $scope, ':key_hash' => $keyHash]);
-        $row = $statement->fetch();
-        if ($row && !empty($row['blocked_until']) && strtotime((string)$row['blocked_until']) > time()) return false;
-        $windowExpired = !$row || strtotime((string)$row['window_started_at']) <= time() - ($windowMinutes * 60);
-        $attempts = $windowExpired ? 1 : ((int)$row['attempts'] + 1);
-        $blockedUntil = $attempts >= $maximum ? date('Y-m-d H:i:s', time() + ($windowMinutes * 60)) : null;
-        $now = date('Y-m-d H:i:s');
-        $statement = $pdo->prepare(
-            "INSERT INTO login_rate_limits (scope, key_hash, attempts, window_started_at, blocked_until, updated_at)
-             VALUES (:scope, :key_hash, :attempts, :window_started_at, :blocked_until, :updated_at)
-             ON DUPLICATE KEY UPDATE attempts = VALUES(attempts), window_started_at = VALUES(window_started_at),
-                                     blocked_until = VALUES(blocked_until), updated_at = VALUES(updated_at)"
-        );
-        $statement->execute([
-            ':scope' => $scope, ':key_hash' => $keyHash, ':attempts' => $attempts,
-            ':window_started_at' => $windowExpired ? $now : $row['window_started_at'],
-            ':blocked_until' => $blockedUntil, ':updated_at' => $now,
-        ]);
-        return true;
+        return self::incrementRateLimitCounter($pdo, $scope, $keyHash, $maximum, $windowMinutes)['allowed'];
+    }
+
+    private static function incrementRateLimitCounter(
+        PDO $pdo,
+        string $scope,
+        string $keyHash,
+        int $maximum,
+        int $windowMinutes
+    ): array {
+        $ownsTransaction = !$pdo->inTransaction();
+        try {
+            if ($ownsTransaction) $pdo->beginTransaction();
+            $now = date('Y-m-d H:i:s');
+            $statement = $pdo->prepare(
+                "INSERT IGNORE INTO login_rate_limits
+                    (scope, key_hash, attempts, window_started_at, blocked_until, updated_at)
+                 VALUES (:scope, :key_hash, 0, :window_started_at, NULL, :updated_at)"
+            );
+            $statement->execute([
+                ':scope' => $scope,
+                ':key_hash' => $keyHash,
+                ':window_started_at' => $now,
+                ':updated_at' => $now,
+            ]);
+
+            $statement = $pdo->prepare(
+                "SELECT attempts, window_started_at, blocked_until
+                 FROM login_rate_limits WHERE scope = :scope AND key_hash = :key_hash LIMIT 1 FOR UPDATE"
+            );
+            $statement->execute([':scope' => $scope, ':key_hash' => $keyHash]);
+            $row = $statement->fetch();
+            if (!$row) throw new RuntimeException('Rate-limit counter could not be initialized.');
+
+            if (!empty($row['blocked_until']) && strtotime((string)$row['blocked_until']) > time()) {
+                if ($ownsTransaction) $pdo->commit();
+                return ['allowed' => false, 'attempts' => (int)$row['attempts'], 'blockedUntil' => $row['blocked_until']];
+            }
+
+            $windowExpired = strtotime((string)$row['window_started_at']) <= time() - ($windowMinutes * 60);
+            $attempts = $windowExpired ? 1 : ((int)$row['attempts'] + 1);
+            $windowStartedAt = $windowExpired ? $now : (string)$row['window_started_at'];
+            $blockedUntil = $attempts >= $maximum ? date('Y-m-d H:i:s', time() + ($windowMinutes * 60)) : null;
+            $statement = $pdo->prepare(
+                "UPDATE login_rate_limits SET attempts = :attempts, window_started_at = :window_started_at,
+                        blocked_until = :blocked_until, updated_at = :updated_at
+                 WHERE scope = :scope AND key_hash = :key_hash"
+            );
+            $statement->execute([
+                ':attempts' => $attempts,
+                ':window_started_at' => $windowStartedAt,
+                ':blocked_until' => $blockedUntil,
+                ':updated_at' => $now,
+                ':scope' => $scope,
+                ':key_hash' => $keyHash,
+            ]);
+            if ($ownsTransaction) $pdo->commit();
+            return ['allowed' => true, 'attempts' => $attempts, 'blockedUntil' => $blockedUntil];
+        } catch (Throwable $exception) {
+            if ($ownsTransaction && $pdo->inTransaction()) $pdo->rollBack();
+            throw $exception;
+        }
     }
 
     private static function validDate(string $value): ?string

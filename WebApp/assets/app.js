@@ -1,6 +1,21 @@
+const app = document.getElementById("app");
+
+function readEmbeddedJson(dataKey, fallback) {
+    const value = app?.dataset?.[dataKey];
+    if (!value) return fallback;
+    try {
+        return JSON.parse(value);
+    } catch {
+        return fallback;
+    }
+}
+
+const embeddedReport = readEmbeddedJson("quReport", null);
+const embeddedBootstrap = readEmbeddedJson("quBootstrap", { user: null });
+
 const state = {
-    report: window.__QU_REPORT__ || null,
-    user: window.__QU_BOOTSTRAP__?.user || null,
+    report: embeddedReport,
+    user: embeddedBootstrap?.user || null,
     needsSetup: false,
     authStatusError: "",
     pendingTwoFactor: null,
@@ -24,7 +39,7 @@ const state = {
     deviceHealthPageSize: 10,
     deviceHealthChartObserver: null,
     releaseNotesReturnPage: "dashboard",
-    baseReport: window.__QU_REPORT__ || null,
+    baseReport: embeddedReport,
     brandFilter: { mode: "all", brand: "", combination: "", selectedBrands: [], match: "any" },
 };
 
@@ -549,11 +564,17 @@ const FEATURE_RELEASES = [
         type: "Bug Fix",
         status: "Released",
     },
+    {
+        version: "v007.06",
+        releasedAt: "August 12, 2026 09:17 EST",
+        title: "Production Security Hardening",
+        description: "Enforced HTTPS and secure session cookies, added strict browser security headers, removed exposed diagnostic endpoints, made report and table rendering safe against stored script injection, serialized login lockout counters, protected CSV and Excel exports from spreadsheet formulas, and added automated security gates for every deployment while preserving all existing user accounts.",
+        type: "Security",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
-
-const app = document.getElementById("app");
 
 function escapeHtml(value) {
     return String(value ?? "")
@@ -2872,17 +2893,17 @@ async function loadApiLogs() {
         "Date And Time", "Source", "Trigger", "User", "Status", "Attempts", "Received", "Added", "Updated", "Skipped", "Duration", "Error"
     ], payload.logs.map(log => [
         new Date(log.startedAt).toLocaleString(),
-        escapeHtml(log.source),
-        escapeHtml(log.triggerType),
-        escapeHtml(log.initiatedBy || "System"),
-        `<span class="status-pill ${escapeHtml(String(log.status).toLowerCase().replaceAll(" ", "-"))}">${escapeHtml(log.status)}</span>`,
+        log.source,
+        log.triggerType,
+        log.initiatedBy || "System",
+        trustedTableHtml(`<span class="status-pill ${escapeHtml(String(log.status).toLowerCase().replaceAll(" ", "-"))}">${escapeHtml(log.status)}</span>`),
         log.attempts,
         log.recordsReceived,
         log.recordsAdded,
         log.recordsUpdated,
         log.recordsSkipped,
         `${log.durationMs} ms`,
-        escapeHtml(log.errorMessage || "")
+        log.errorMessage || ""
     ]));
 }
 
@@ -2946,13 +2967,13 @@ async function loadApiSchedules() {
     list.innerHTML = simpleTable([
         "API Job Name", "Scheduled Time", "Timezone", "Last Run", "Next Scheduled Run", "Current Status", "Available Actions"
     ], payload.schedules.map(schedule => [
-        escapeHtml(schedule.jobName),
-        `<input class="text-input schedule-time-input" type="time" value="${escapeHtml(schedule.scheduledTime)}" data-schedule-id="${escapeHtml(schedule.id)}">`,
-        escapeHtml(schedule.timezone),
+        schedule.jobName,
+        trustedTableHtml(`<input class="text-input schedule-time-input" type="time" value="${escapeHtml(schedule.scheduledTime)}" data-schedule-id="${escapeHtml(schedule.id)}">`),
+        schedule.timezone,
         schedule.lastRunAt ? new Date(schedule.lastRunAt).toLocaleString() : "Not run yet",
         schedule.nextRunAt ? new Date(schedule.nextRunAt).toLocaleString() : "",
-        escapeHtml(schedule.lastStatus),
-        `<button class="btn" data-save-schedule="${escapeHtml(schedule.id)}" type="button">Edit</button>`
+        schedule.lastStatus,
+        trustedTableHtml(`<button class="btn" data-save-schedule="${escapeHtml(schedule.id)}" type="button">Edit</button>`)
     ]));
     document.querySelectorAll("button[data-save-schedule]").forEach(button => {
         button.addEventListener("click", () => updateScheduleTime(button.dataset.saveSchedule));
@@ -3254,12 +3275,12 @@ function versionSection(title, versions, report, sectionId = "", appType = "pos"
         <section class="report-section" ${sectionId ? `id="${escapeHtml(sectionId)}"` : ""}>
             <h2>${escapeHtml(title)}</h2>
             ${simpleTable(["Version", "Release Train", "Terminals", "Stores", "Types", "Download"], versions.map(item => [
-                badge(item.version, report, baseline),
+                trustedTableHtml(badge(item.version, report, baseline)),
                 item.releaseTrain || "",
                 item.terminalCount,
                 item.storeCount,
                 item.terminalTypes,
-                item.url ? `<a href="${escapeHtml(item.url)}" target="_blank">Download</a>` : ""
+                item.url ? trustedTableHtml(`<a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">Download</a>`) : ""
             ]))}
             ${versions.map(item => versionDetail(item, report, baseline, appType)).join("")}
         </section>`;
@@ -3276,7 +3297,7 @@ function versionDetail(item, report, baseline = null, appType = "pos") {
                     store.storeId,
                     store.storeName,
                     storeBrands(store).join(", "),
-                    storeStatusBadge(store.storeStatus),
+                    trustedTableHtml(storeStatusBadge(store.storeStatus)),
                     store.terminalCount,
                     store.terminalTypes,
                     store.latestSeen
@@ -3291,7 +3312,7 @@ function outdatedSection(report) {
         <h2>Out-Of-Date Stores</h2>
         <p class="subtle">Current stable version is ${escapeHtml(report.summary.currentStableVersion)}. Any POS app version below that is counted as out-of-date.</p>
         ${simpleTable(["Version", "Out-Of-Date Terminals", "Stores"], report.outOfDateVersionSummary.map(item => [
-            badge(item.version, report),
+            trustedTableHtml(badge(item.version, report)),
             item.terminalCount,
             item.storeCount
         ]))}`;
@@ -3302,9 +3323,11 @@ function storesTab(report) {
         store.storeId,
         store.storeName,
         storeBrands(store).join(", "),
-        (store.versionsDetectedList || []).map(version => badge(version, report)).join(""),
-        badge(store.mostCommonVersion, report),
-        `${escapeHtml(store.outOfDateTerminalCount)}${Number(store.outOfDateTerminalCount) > 0 ? '<span class="sr-only"> out-of-date-store</span>' : ""}`,
+        trustedTableHtml((store.versionsDetectedList || []).map(version => badge(version, report)).join("")),
+        trustedTableHtml(badge(store.mostCommonVersion, report)),
+        Number(store.outOfDateTerminalCount) > 0
+            ? trustedTableHtml(`${escapeHtml(store.outOfDateTerminalCount)}<span class="sr-only"> out-of-date-store</span>`)
+            : store.outOfDateTerminalCount,
         store.totalPosTerminals,
         store.latestSeen
     ]));
@@ -3317,7 +3340,7 @@ function alertsTab(report) {
         ${storesTab({ ...report, stores: alerts.mixedVersionStores || [] })}
         <h2>Stale Terminals</h2>
         ${simpleTable(["Store ID", "Store Name", "Terminal ID", "Computer Name", "Type", "Version", "Last Seen", "Age Days"], (alerts.staleTerminals || []).map(item => [
-            item.storeId, item.storeName, item.terminalId, item.computerName, item.terminalType, badge(item.currentVersion, report), item.lastSeen, item.ageDays
+            item.storeId, item.storeName, item.terminalId, item.computerName, item.terminalType, trustedTableHtml(badge(item.currentVersion, report)), item.lastSeen, item.ageDays
         ]))}
         <h2>Far Behind Stores</h2>
         ${storesTab({ ...report, stores: alerts.farBehindStores || [] })}`;
@@ -3332,9 +3355,9 @@ function quboxDownTab(report) {
             item.storeId,
             item.storeName,
             storeBrands(item).join(", "),
-            storeStatusBadge(item.storeStatus),
+            trustedTableHtml(storeStatusBadge(item.storeStatus)),
             item.issue,
-            item.quboxVersion ? badge(item.quboxVersion, report) : "",
+            item.quboxVersion ? trustedTableHtml(badge(item.quboxVersion, report)) : "",
             item.computerName,
             item.lastSeen,
             item.ageDays
@@ -3352,8 +3375,19 @@ function comparisonTab(report) {
         </div>
         <h2>Changed Terminals</h2>
         ${simpleTable(["Store ID", "Store Name", "Terminal ID", "Computer Name", "Type", "Previous Version", "Current Version", "Change"], comparison.changedTerminals.map(item => [
-            item.storeId, item.storeName, item.terminalId, item.computerName, item.terminalType, item.previousVersion, badge(item.currentVersion, report), item.changeType
+            item.storeId, item.storeName, item.terminalId, item.computerName, item.terminalType, item.previousVersion, trustedTableHtml(badge(item.currentVersion, report)), item.changeType
         ]))}`;
+}
+
+function trustedTableHtml(markup) {
+    return Object.freeze({ __trustedTableHtml: String(markup ?? "") });
+}
+
+function tableCellHtml(cell) {
+    if (cell && typeof cell === "object" && Object.prototype.hasOwnProperty.call(cell, "__trustedTableHtml")) {
+        return cell.__trustedTableHtml;
+    }
+    return escapeHtml(cell);
 }
 
 function simpleTable(headers, rows) {
@@ -3363,7 +3397,7 @@ function simpleTable(headers, rows) {
             <table>
                 <thead><tr>${headers.map(header => `<th>${escapeHtml(header)}</th>`).join("")}</tr></thead>
                 <tbody>
-                    ${rows.map(row => `<tr>${row.map(cell => `<td>${cell ?? ""}</td>`).join("")}</tr>`).join("")}
+                    ${rows.map(row => `<tr>${row.map(cell => `<td>${tableCellHtml(cell)}</td>`).join("")}</tr>`).join("")}
                 </tbody>
             </table>
         </div>`;
@@ -3771,17 +3805,22 @@ function csvText({ sections }) {
 }
 
 function csvCell(value) {
-    const text = String(value ?? "");
+    const text = spreadsheetSafeText(value);
     return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+}
+
+function spreadsheetSafeText(value) {
+    const text = String(value ?? "");
+    return /^[\s]*[=+\-@]/.test(text) ? `'${text}` : text;
 }
 
 function excelHtml({ sections }) {
     const tables = sections.map(section => {
-        const headerRow = `<tr>${section.headers.map(cell => `<th>${escapeHtml(cell)}</th>`).join("")}</tr>`;
-        const bodyRows = section.rows.map(row => `<tr>${row.map(cell => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`).join("");
-        return `<h2>${escapeHtml(section.section)}</h2><table>${headerRow}${bodyRows}</table>`;
+        const headerRow = `<tr>${section.headers.map(cell => `<th>${escapeHtml(spreadsheetSafeText(cell))}</th>`).join("")}</tr>`;
+        const bodyRows = section.rows.map(row => `<tr>${row.map(cell => `<td>${escapeHtml(spreadsheetSafeText(cell))}</td>`).join("")}</tr>`).join("");
+        return `<h2>${escapeHtml(spreadsheetSafeText(section.section))}</h2><table>${headerRow}${bodyRows}</table>`;
     }).join("<br>");
-    return `<!doctype html><html><head><meta charset="utf-8"></head><body><h1>Brand Filter: ${escapeHtml(activeBrandFilterLabel())}</h1>${tables}</body></html>`;
+    return `<!doctype html><html><head><meta charset="utf-8"></head><body><h1>Brand Filter: ${escapeHtml(spreadsheetSafeText(activeBrandFilterLabel()))}</h1>${tables}</body></html>`;
 }
 
 function downloadFile(fileName, content, mimeType) {

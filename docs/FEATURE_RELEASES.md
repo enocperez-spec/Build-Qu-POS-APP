@@ -1,11 +1,11 @@
 # Release Notes
 
-Current application version: `v007.03`
+Current application version: `v007.06`
 
 Version sequence: `v001.01` through `v001.09`, then `v002.00`, followed by
 `v002.00` through `v002.09`, then `v003.00` through `v003.09`, then `v004.00`
 through `v004.09`, then `v005.00` through `v005.09`, then `v006.00` through
-`v006.09`, then `v007.00`, `v007.01`, `v007.02`, `v007.03`, and so on.
+`v006.09`, then `v007.00` through `v007.06`, and so on.
 
 Going forward, every approved and completed feature, improvement, bug fix, or
 security change should add a new entry here and update the current application
@@ -15,6 +15,7 @@ Newest releases are listed first.
 
 | Version | Release Date And Time | Type | Title | Description | Status |
 | --- | --- | --- | --- | --- | --- |
+| v007.06 | August 12, 2026 09:17 EST | Security | Production Security Hardening | Enforced HTTPS and secure session cookies, added strict browser security headers, removed exposed diagnostic endpoints, made report and table rendering safe against stored script injection, serialized login lockout counters, protected CSV and Excel exports from spreadsheet formulas, and added automated security gates for every deployment while preserving all existing user accounts. | Released |
 | v007.05 | August 12, 2026 01:52 EST | Bug Fix | Store Health Role Permission | Added Store Health as its own User Roles permission so administrators can independently control the Store Health navigation, store search, and scorecard access for Admin, Tech, and Read-Only roles. | Released |
 | v007.04 | August 12, 2026 01:27 EST | Security | Account Security And User Audit Logs | Added configurable account lockout and login rate limiting, 2FA recovery codes, secure self-service password reset and password changes, sensitive-change session invalidation, administrator identity updates with security notifications, and a searchable read-only audit log with filters, sorting, pagination, and CSV or Excel export. | Released |
 | v007.03 | August 12, 2026 00:43 EST | Improvement | Live Store Device Health Scope | Limited the Device Health dashboard to stores whose latest QU EI operational status is Live. Not Operational and unverified-status stores are excluded before all metrics, trends, version adoption, brand filters, and tables are calculated, with scope counts displayed on the dashboard. | Released |
