@@ -259,6 +259,7 @@ async function importIntoWebApp(csvPath) {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${required(settings.importToken, 'QU_APP_IMPORT_TOKEN')}`,
+      'X-QU-Import-Token': required(settings.importToken, 'QU_APP_IMPORT_TOKEN'),
       'X-QU-Trigger-Type': settings.triggerType,
       'X-QU-Attempts': '1',
     },

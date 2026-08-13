@@ -36,3 +36,6 @@ jobs:
 
       - name: Frontend security tests
         run: node tests/web_security_frontend_test.js
+
+      - name: Cloud automation authentication tests
+        run: node tests/cloud_automation_test.js

@@ -572,6 +572,14 @@ const FEATURE_RELEASES = [
         type: "Security",
         status: "Released",
     },
+    {
+        version: "v007.07",
+        releasedAt: "August 13, 2026 17:23 EST",
+        title: "GitHub CSV Import Authentication Repair",
+        description: "Updated both QU EI GitHub Actions imports to send the IONOS-compatible protected token header, restoring automatic Terminal and Store Information CSV history updates after successful QU EI exports. Added a regression test to keep the required authentication headers in future releases.",
+        type: "Bug Fix",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
