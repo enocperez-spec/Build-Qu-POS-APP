@@ -21,5 +21,10 @@ for (const value of ["3.5.231.6408", "Store 7037", "Normal text"]) {
 }
 assert.match(source, /function csvCell\(value\) \{\s*const text = spreadsheetSafeText\(value\);/, "CSV export must use formula protection");
 assert.match(source, /escapeHtml\(spreadsheetSafeText\(cell\)\)/, "Excel export must use formula protection");
+assert.match(source, /healthMetricCard\("POS Terminals Offline", formatNumber\(store\.posOffline\)/, "Store Health must render the POS offline scorecard metric");
+
+const cssPath = path.join(__dirname, "..", "WebApp", "assets", "app.css");
+const css = fs.readFileSync(cssPath, "utf8");
+assert.match(css, /\.health-store-metrics\s*\{[^}]*grid-template-columns:\s*repeat\(7,/s, "Store Health must keep all seven scorecard metrics in one wide-screen row");
 
 console.log("Web frontend security tests passed.");

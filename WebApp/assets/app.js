@@ -580,6 +580,14 @@ const FEATURE_RELEASES = [
         type: "Bug Fix",
         status: "Released",
     },
+    {
+        version: "v007.08",
+        releasedAt: "August 14, 2026 15:32 EST",
+        title: "Offline POS Store Scorecard Metric",
+        description: "Added a dedicated POS Terminals Offline card to the Store Device Health Scorecard so searched stores immediately show how many expected POS terminals are absent from the latest collected snapshot.",
+        type: "Improvement",
+        status: "Released",
+    },
 ];
 
 const APP_VERSION = FEATURE_RELEASES[FEATURE_RELEASES.length - 1].version;
@@ -2028,6 +2036,7 @@ function deviceHealthStoreView(scorecard, returnPage = "deviceHealth") {
                 ${healthMetricCard("Warning", formatNumber(store.warning), "Last seen 2 to 7 days ago", "warning", "outdated")}
                 ${healthMetricCard("Critical", formatNumber(store.critical), "Stale over 7 days or timestamp issue", "critical", "outdated")}
                 ${healthMetricCard("Offline", formatNumber(store.offline), "Expected but absent", "offline", "outdated")}
+                ${healthMetricCard("POS Terminals Offline", formatNumber(store.posOffline), "Expected POS absent from latest snapshot", "offline", "terminals")}
                 ${healthMetricCard("Snapshots Checked", formatNumber(store.snapshotCount), `Last good: ${formatHealthDate(store.lastGoodSnapshot)}`, "info", "qukds")}
             </div>
 

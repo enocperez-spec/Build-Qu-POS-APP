@@ -221,6 +221,7 @@ final class DeviceHealthService
                 'warning' => $summary['warning'],
                 'critical' => $summary['critical'],
                 'offline' => $summary['offline'],
+                'posOffline' => $summary['posOffline'],
                 'downOrStale' => $summary['downDevices'],
                 'snapshotCount' => count($model['snapshots']),
                 'lastGoodSnapshot' => $summary['lastGoodSnapshot'],
@@ -320,6 +321,12 @@ final class DeviceHealthService
             $checks['siteStatusCountsReconcile'] =
                 $store['healthy'] + $store['warning'] + $store['critical'] + $store['offline'] === $store['expectedDevices'];
             $checks['siteDeviceRowsReconcile'] = count($scorecard['devices']) === $store['expectedDevices'];
+            $checks['sitePosOfflineReconciles'] = count(array_filter(
+                $scorecard['devices'],
+                static fn(array $device): bool =>
+                    $device['product'] === 'pos'
+                    && ($device['currentStatus']['key'] ?? '') === 'offline'
+            )) === $store['posOffline'];
         }
         $failed = array_keys(array_filter($checks, static fn(bool $passed): bool => !$passed));
         return [
@@ -544,10 +551,15 @@ final class DeviceHealthService
     private static function summarizeStore(array $store, array $model): array
     {
         $counts = self::emptyStatusCounts();
+        $posOffline = 0;
         $healthyChecks = 0;
         $totalChecks = 0;
         foreach ($store['devices'] as $device) {
-            $counts[self::statusKey(self::currentStatusCode($device))]++;
+            $currentCode = self::currentStatusCode($device);
+            $counts[self::statusKey($currentCode)]++;
+            if ($device['product'] === 'pos' && $currentCode === self::STATUS_OFFLINE) {
+                $posOffline++;
+            }
             $healthyChecks += substr_count((string)$device['statuses'], self::STATUS_HEALTHY);
             $totalChecks += strlen((string)$device['statuses']);
         }
@@ -562,6 +574,7 @@ final class DeviceHealthService
             'warning' => $counts['warning'],
             'critical' => $counts['critical'],
             'offline' => $counts['offline'],
+            'posOffline' => $posOffline,
             'downDevices' => $counts['warning'] + $counts['critical'] + $counts['offline'],
             'healthyChecks' => $healthyChecks,
             'totalChecks' => $totalChecks,

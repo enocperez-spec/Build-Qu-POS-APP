@@ -28,6 +28,9 @@ jobs:
       - name: PHP syntax check
         run: find WebApp tests -name '*.php' -print0 | xargs -0 -n1 php -l
 
+      - name: Device health calculation tests
+        run: php tests/device_health_calculation_test.php
+
       - name: Security service tests
         run: php tests/security_service_test.php
 

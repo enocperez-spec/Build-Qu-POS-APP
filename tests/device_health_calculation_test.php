@@ -87,4 +87,28 @@ assertSameValue(1, $auntieAnnes['summary']['totalStores'], 'Brand filter must up
 assertSameValue(3, $auntieAnnes['summary']['totalDevices'], 'Brand filter must update device totals.');
 assertNear(55.6, $auntieAnnes['summary']['fleetHealthScore'], 'Brand filter must update the score denominator.');
 
+$offlinePosDashboard = DeviceHealthService::fixtureDashboard([
+    [
+        'id' => 11,
+        'uploadedAt' => '2026-08-10T08:00:00-04:00',
+        'rows' => [
+            ['Store ID' => '500', 'Store Name' => 'MOES-Test-Five', 'Terminal ID' => '51', 'Computer Name' => 'QU500T1', 'Network Address' => '192.168.22.111', 'Terminal Type' => 'POS', 'Current Version' => '3.5.232.6451', 'Last Seen Online' => '08/10/2026 07:30 AM America/New_York'],
+            ['Store ID' => '500', 'Store Name' => 'MOES-Test-Five', 'Terminal ID' => '52', 'Computer Name' => 'QU500T2', 'Network Address' => '192.168.22.112', 'Terminal Type' => 'POS', 'Current Version' => '3.5.232.6451', 'Last Seen Online' => '08/10/2026 07:31 AM America/New_York'],
+            ['Store ID' => '500', 'Store Name' => 'MOES-Test-Five', 'Terminal ID' => '59', 'Computer Name' => 'QU500BOX', 'Network Address' => '192.168.22.10', 'Terminal Type' => 'QuBox', 'Current Version' => '3.6.952-6459', 'Last Seen Online' => '08/10/2026 07:32 AM America/New_York'],
+        ],
+    ],
+    [
+        'id' => 12,
+        'uploadedAt' => '2026-08-11T08:00:00-04:00',
+        'rows' => [
+            ['Store ID' => '500', 'Store Name' => 'MOES-Test-Five', 'Terminal ID' => '51', 'Computer Name' => 'QU500T1', 'Network Address' => '192.168.22.111', 'Terminal Type' => 'POS', 'Current Version' => '3.5.232.6451', 'Last Seen Online' => '08/11/2026 07:30 AM America/New_York'],
+            ['Store ID' => '500', 'Store Name' => 'MOES-Test-Five', 'Terminal ID' => '59', 'Computer Name' => 'QU500BOX', 'Network Address' => '192.168.22.10', 'Terminal Type' => 'QuBox', 'Current Version' => '3.6.952-6459', 'Last Seen Online' => '08/11/2026 07:32 AM America/New_York'],
+        ],
+    ],
+], [
+    '500' => ['storeName' => 'MOES-Test-Five', 'brands' => ["Moe's Southwest Grill"], 'status' => 'Live'],
+]);
+assertSameValue(1, $offlinePosDashboard['stores'][0]['posOffline'], 'Store scorecards must count only absent POS devices in the POS offline metric.');
+assertSameValue(1, $offlinePosDashboard['stores'][0]['offline'], 'The POS offline metric must reconcile with the fixture current-status totals.');
+
 echo "Device health calculation tests passed.\n";
